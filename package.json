@@ -1,0 +1,15 @@
+{
+  "name": "aigameagent-design",
+  "version": "1.0.0",
+  "description": "Design doc site for AiGameAgent (aiGameGongfang Studio) — multi-platform mini-game workflow with department-based AI agents.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev docs-site",
+    "docs:build": "vitepress build docs-site",
+    "docs:preview": "vitepress preview docs-site"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}
