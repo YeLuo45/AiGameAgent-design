@@ -1,58 +1,58 @@
-# 04 · Agent Roster & Departments
+# 04 · 智能体花名册与部门
 
-The "studio" in AiGameAgent is staffed by **30 named AI agents**, each declared as a `.claude/agents/<id>.md` manifest. The first time the server boots, all 30 are auto-hired; the boss can toggle them off via the hire roster.
+AiGameAgent 中的「工作室」由 **30 位具名 AI Agent** 组成，每个 Agent 以 `.claude/agents/<id>.md` 清单文件声明。服务器首次启动时会自动雇佣全部 30 位；老板可以通过雇佣花名册来开关某位 Agent。
 
-**Source:** `.claude/agents/*.md` (30 files) · parsed at runtime by `listAgents(repoRoot)` in `studio-server/src/index.ts`
+**Source:** `.claude/agents/*.md`（30 个文件）· 由 `studio-server/src/index.ts` 中的 `listAgents(repoRoot)` 在运行时解析
 
-## Roster
+## 花名册
 
-The current roster (from `production/studio-hired.json` shipped in the repo):
+当前花名册（来自仓库内置的 `production/studio-hired.json`）：
 
-| Agent | Department | What they do |
+| Agent | 部门 | 职责 |
 |-------|-----------|--------------|
-| `producer` | leadership | Splits tasks, dispatches to specialists, gates on acceptance |
-| `technical-director` | leadership | Routes models, watches first-chunk latency, escalates on stalls |
-| `creative-director` | leadership | Gates work on preview, enforces acceptance criteria |
-| `game-designer` | design | Core loop, mechanics, win/lose conditions |
-| `systems-designer` | design | Economy, progression, formulas |
-| `level-designer` | design | Maps, encounters, pacing |
-| `economy-designer` | design | Resource curves, sinks/fountains |
-| `narrative-director` | narrative | Story arc, characters, branching |
-| `writer` | narrative | Dialogue, copy, in-game text |
-| `localization-lead` | narrative | Multi-language, glossary |
-| `community-manager` | narrative | Player comms, sentiment, FAQ |
-| `lead-programmer` | programming | Architecture, code review, decomp risks |
-| `gameplay-programmer` | programming | Core gameplay code, input, state |
-| `engine-programmer` | programming | Engine internals, custom systems |
-| `ai-programmer` | programming | NPC AI, pathfinding, behavior trees |
-| `network-programmer` | programming | Multiplayer, netcode, replication |
-| `tools-programmer` | programming | Editor tools, pipelines, CLI |
-| `ui-programmer` | programming | HUD, menus, in-game UI |
-| `art-director` | art_audio | Visual style, art bible |
-| `audio-director` | art_audio | Music and SFX direction |
-| `sound-designer` | art_audio | Per-event SFX, ambience |
-| `technical-artist` | art_audio | Shaders, VFX, asset integration |
-| `qa-lead` | qa_release | Test plan, regression scope |
-| `qa-tester` | qa_release | Test execution, bug filing |
-| `release-manager` | qa_release | Store submission, platform rules |
-| `devops-engineer` | qa_release | CI/CD, infra |
-| `security-engineer` | qa_release | Threat model, anti-cheat |
-| `performance-analyst` | qa_release | Profiling, frame budget |
-| `prototyper` | other | Throwaway spikes |
-| `accessibility-specialist` | other | Subtitles, color-blind, haptics |
-| `analytics-engineer` | other | Telemetry, dashboards |
-| `live-ops-designer` | other | Events, retention loops |
-| `world-builder` | other | Lore, world bible |
-| `ux-designer` | other | UI/UX flows |
-| `web-h5-specialist` | platform | Web / H5 delivery |
+| `producer` | leadership | 拆分任务、分派给专家、把守验收 |
+| `technical-director` | leadership | 路由模型、关注首块延迟、卡顿时升级 |
+| `creative-director` | leadership | 在预览上把关、执行验收标准 |
+| `game-designer` | design | 核心循环、机制、胜负条件 |
+| `systems-designer` | design | 经济、成长曲线、公式 |
+| `level-designer` | design | 地图、遭遇、节奏 |
+| `economy-designer` | design | 资源曲线、消耗/产出 |
+| `narrative-director` | narrative | 故事线、角色、分支 |
+| `writer` | narrative | 对白、文案、游戏内文本 |
+| `localization-lead` | narrative | 多语言、术语表 |
+| `community-manager` | narrative | 玩家沟通、舆情、FAQ |
+| `lead-programmer` | programming | 架构、代码评审、反编译风险 |
+| `gameplay-programmer` | programming | 核心玩法代码、输入、状态 |
+| `engine-programmer` | programming | 引擎内部、自定义系统 |
+| `ai-programmer` | programming | NPC AI、寻路、行为树 |
+| `network-programmer` | programming | 多人、netcode、状态同步 |
+| `tools-programmer` | programming | 编辑器工具、管道、CLI |
+| `ui-programmer` | programming | HUD、菜单、游戏内 UI |
+| `art-director` | art_audio | 视觉风格、艺术圣经 |
+| `audio-director` | art_audio | 音乐与音效方向 |
+| `sound-designer` | art_audio | 逐事件的 SFX、环境音 |
+| `technical-artist` | art_audio | 着色器、VFX、资源集成 |
+| `qa-lead` | qa_release | 测试计划、回归范围 |
+| `qa-tester` | qa_release | 测试执行、Bug 提交 |
+| `release-manager` | qa_release | 商店上架、平台规则 |
+| `devops-engineer` | qa_release | CI/CD、基础设施 |
+| `security-engineer` | qa_release | 威胁模型、反作弊 |
+| `performance-analyst` | qa_release | 性能分析、帧预算 |
+| `prototyper` | other | 一次性 spike 试验 |
+| `accessibility-specialist` | other | 字幕、色盲、触感反馈 |
+| `analytics-engineer` | other | 埋点、仪表板 |
+| `live-ops-designer` | other | 活动、留存循环 |
+| `world-builder` | other | 世界观、世界圣经 |
+| `ux-designer` | other | UI/UX 流程 |
+| `web-h5-specialist` | platform | Web / H5 交付 |
 | `wechat-minigame-specialist` | platform | 微信小游戏 |
 | `douyin-minigame-specialist` | platform | 抖音小游戏 |
 
-That's **37 entries** in the shipped `studio-hired.json` — some (like `web-h5-specialist`) overlap with the spec list. The runtime `listAgents()` enumerates whatever is on disk, so the source of truth is the `.claude/agents/` directory.
+仓库内置的 `studio-hired.json` 实际是 **37 条**记录——其中部分（例如 `web-h5-specialist`）与规范列表有重叠。运行时的 `listAgents()` 会枚举磁盘上所有内容，因此 `.claude/agents/` 目录才是真正的真源。
 
-## Agent manifest format
+## Agent 清单格式
 
-Each agent is a Markdown file with YAML frontmatter:
+每个 Agent 都是一份带 YAML frontmatter 的 Markdown 文件：
 
 ```markdown
 ---
@@ -60,7 +60,7 @@ name: producer
 description: Splits tasks, dispatches to specialists, gates on acceptance
 ---
 
-# Producer (制作人)
+# Producer
 
 You are the Producer in the AiGameAgent studio. ...
 
@@ -80,11 +80,11 @@ When the boss archives a charter, you ...
 A queue of `job.enqueued` events with `source: "producer_chain"` ...
 ```
 
-The server parses the frontmatter with `gray-matter` and exposes `id + description` over `/api/agents`.
+服务器用 `gray-matter` 解析 frontmatter，并通过 `/api/agents` 暴露 `id + description`。
 
-## Department mapping
+## 部门映射
 
-`deptOf(agentId)` is a hard-coded lookup in `studio-web/src/main.ts`:
+`deptOf(agentId)` 是 `studio-web/src/main.ts` 中的硬编码查找：
 
 ```ts
 function deptOf(id: string): Dept {
@@ -98,23 +98,23 @@ function deptOf(id: string): Dept {
 }
 ```
 
-This drives:
+它驱动：
 
-- The Phaser desk layout (which cluster a desk appears in)
-- The department drawer (which agents contribute to the per-dept KPIs)
-- The workorder actions (`POST /api/dept/workorder/action` accepts `deptId`)
+- Phaser 工位布局（决定工位出现在哪个集群）
+- 部门抽屉（决定哪些 Agent 参与部门 KPI）
+- 工单操作（`POST /api/dept/workorder/action` 接收 `deptId`）
 
-## Leadership meeting subset
+## 领导层会议子集
 
-The first three agents — `producer`, `technical-director`, `creative-director` — form the "leadership" set. They are the **only** agents invoked by the `meeting.start` flow:
+前三位 Agent —— `producer`、`technical-director`、`creative-director` —— 构成「领导层」集合。它们是 `meeting.start` 流程中**唯一**被调用的 Agent：
 
 ```ts
 const LEADERSHIP_MEETING_AGENTS = new Set(["producer", "technical-director", "creative-director"]);
 ```
 
-In a meeting, the three are prompted in turn and produce a transcript. Their replies are then parsed (JSON or loose `Speaker: text`) and the boss decides what to archive into the charter.
+在会议中，三位 Agent 被依次调用并产出会议记录。其回复随后被解析（JSON 或宽松的 `Speaker: text`），老板再决定要把哪些内容归档进章程。
 
-## Hire lifecycle
+## 雇佣生命周期
 
 ```
 agent.yaml exists
@@ -125,7 +125,7 @@ agent.yaml exists
                         └─> /api/hire returns { hired: [...] }
 ```
 
-The boss can toggle one off via `POST /api/hire { agentId, hired: false }`. The next enqueue check:
+老板可以通过 `POST /api/hire { agentId, hired: false }` 关闭某位 Agent。下一次入队检查：
 
 ```ts
 if (hired.size > 0 && !hired.has(agentId)) {
@@ -134,19 +134,19 @@ if (hired.size > 0 && !hired.has(agentId)) {
 }
 ```
 
-`POST /api/hire/sync_all` resets the roster to "everyone".
+`POST /api/hire/sync_all` 会把花名册重置为「全员」。
 
-## Producer chain (the kickoff choreography)
+## Producer 链（开局编排）
 
-When a meeting decides a charter, the producer's "chain" kicks off a sequence:
+当会议敲定一份章程时，producer 的「链」会启动一个序列：
 
 ```ts
 const steps: Array<{ agentId: string; task: string; priority: number }> = [
-  { agentId: "producer", task: "统筹首包", priority: 1 },
-  { agentId: "game-designer", task: "定核心循环", priority: 1 },
-  { agentId: "gameplay-programmer", task: "实现首包核心循环", priority: 1 },
-  { agentId: "art-director", task: "视觉风格与样例", priority: 1 },
-  { agentId: "qa-lead", task: "首包测试 + 回归", priority: 1 }
+  { agentId: "producer", task: "Coordinate the first cut", priority: 1 },
+  { agentId: "game-designer", task: "Define the core loop", priority: 1 },
+  { agentId: "gameplay-programmer", task: "Implement the first-cut core loop", priority: 1 },
+  { agentId: "art-director", task: "Visual style and samples", priority: 1 },
+  { agentId: "qa-lead", task: "First-cut testing + regression", priority: 1 }
 ];
 
 const chainId = newId("chain");
@@ -154,37 +154,37 @@ producerChainById.set(chainId, { steps, cursor: 0 });
 // First step is enqueued immediately; subsequent steps enqueue when the prior finishes.
 ```
 
-Each step's `Job` carries `source: "producer_chain"` and `producerChainId`. When a chain job finishes, `maybeAdvanceProducerChain()` checks if the next step is ready and pushes it.
+每一步的 `Job` 都带 `source: "producer_chain"` 和 `producerChainId`。当链上的 Job 完成时，`maybeAdvanceProducerChain()` 会判断下一步是否就绪并推入。
 
-## Provider override per agent
+## 按 Agent 覆盖提供方
 
 ```ts
 const agentProvider = new Map<string, string>(); // agentId -> providerId
 ```
 
-If the boss wants `qa-tester` to always use the `cloud` provider (e.g. for better reasoning), they can `POST /api/system/route { agentId: "qa-tester", providerId: "cloud" }`. The next enqueue for `qa-tester` will skip the routing logic and use `cloud` directly.
+如果老板想让 `qa-tester` 始终使用 `cloud` 提供方（比如为了更好的推理能力），可以 `POST /api/system/route { agentId: "qa-tester", providerId: "cloud" }`。`qa-tester` 的下一次入队会跳过路由逻辑，直接使用 `cloud`。
 
-## Why 30+ agents and not one "AI"?
+## 为什么要 30+ 个 Agent，而不是一个「AI」？
 
-The studio is **modelled on a real game studio** because:
+工作室是**模拟一个真实的游戏工作室**，原因在于：
 
-1. **Specialisation beats generalisation** for small local models — a 7B that gets "you are the producer" outperforms the same 7B with "you are a general AI assistant"
-2. **Output bounds are department-shaped** — the producer's output is a queue of jobs, the artist's output is a sprite, the QA's output is a bug list. Constraining the role constrains the output.
-3. **The boss can intervene at the right level** — when the artist is off, the boss goes to the art_audio drawer; they don't have to wade through a single thread.
-4. **The visualization earns its keep** — 30 desks in 7 clusters *looks like* a studio; one chat bubble doesn't.
+1. **专业化胜过泛化**——对小型本地模型而言，「你是 producer」这种 7B 模型的表现，比同一 7B 模型扮演「你是通用 AI 助手」要更好
+2. **输出边界由部门塑形**——producer 的输出是任务队列，艺术家的输出是精灵图，QA 的输出是 Bug 列表。限定角色就能限定输出
+3. **老板可以在合适的层级介入**——艺术家掉链子时，老板去 `art_audio` 抽屉就行，不必在一条长对话里翻找
+4. **可视化物有所值**——7 个集群中的 30 个工位**看起来就像一间工作室**；一个聊天气泡则不然
 
-## Adding a new agent
+## 新增 Agent
 
-Three steps:
+三步搞定：
 
-1. Drop `my-new-role.md` into `.claude/agents/` with a `name` + `description` in frontmatter
-2. (Optional) extend `deptOf()` in `studio-web/src/main.ts` if the new role is in a new department
-3. (Optional) wire it into a chain in the producer's manifest
+1. 把 `my-new-role.md` 放到 `.claude/agents/`，在 frontmatter 中填好 `name` + `description`
+2.（可选）在 `studio-web/src/main.ts` 中扩展 `deptOf()`，把新角色纳入新部门
+3.（可选）把它接到 producer 清单中的某条链上
 
-No server restart is needed if the hire list is reloaded — the next `/api/agents` call picks it up. The list is read on demand; there's no in-memory cache to bust.
+如果重新加载雇佣列表，无需重启服务器——下一次 `/api/agents` 调用就会拾取它。列表是按需读取的，没有需要击穿的内存缓存。
 
-## Next
+## 接下来
 
-- [OpenSpec Change Control](/docs/05-openspec) — how capabilities like `studio-events-bus` are versioned
-- [Meeting Room & Project Charter](/docs/06-meeting-and-charter) — the leadership subset in action
-- [Monitor & HTML Preview](/docs/07-monitor-and-preview) — the output of any agent
+- [OpenSpec 变更控制](/docs/05-openspec) —— `studio-events-bus` 这类能力是如何版本化的
+- [会议室与项目章程](/docs/06-meeting-and-charter) —— 领导层子集的实际运转
+- [监控与 H5 预览](/docs/07-monitor-and-preview) —— 任一 Agent 的输出

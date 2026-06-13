@@ -1,20 +1,20 @@
-# 10 · Local LLM Integration
+# 10 · 本地大模型集成
 
-AiGameAgent is built for **local-first** LLM use. The default upstream is Ollama on `127.0.0.1:11434/v1`; the studio auto-detects the host's hardware and recommends a model tier that fits. The boss can switch up to cloud for the meeting tier without touching the rest of the stack.
+AiGameAgent 为**本地优先（local-first）**的 LLM 使用而构建。默认上游是 `127.0.0.1:11434/v1` 上的 Ollama；工作室会自动检测宿主机的硬件，并推荐一个合适的模型档位。老板可以切换到云端以应对会议档位的需求，而无需改动栈中的其他部分。
 
-**Source:** `apps/studio-server/src/index.ts` (`getWinGpuInfo`, `recommendLocalModels`, `getAdviceSnapshot`) + `apps/studio-web/src/main.ts` (`setupPolicyUI`)
+**源码：** `apps/studio-server/src/index.ts`（`getWinGpuInfo`、`recommendLocalModels`、`getAdviceSnapshot`）+ `apps/studio-web/src/main.ts`（`setupPolicyUI`）
 
-## Why local-first?
+## 为什么要本地优先？
 
-Three reasons:
+三个原因：
 
-1. **Cost**: a 7B Q4 model running on a 16 GB GPU is free per-token. The cloud alternative is ~$0.15 / 1k output tokens.
-2. **Privacy**: the studio's source code, charter, and game prompts never leave the box.
-3. **Latency**: a 7B on local hardware is ~50-200ms first-chunk; the same request to a remote API is ~500-2000ms.
+1. **成本**：在 16 GB GPU 上跑一个 7B Q4 模型是按 token 免费的。换成云端大约是 $0.15 / 1k 输出 token。
+2. **隐私**：工作室的源码、章程（charter）和游戏 prompt 不会离开本机。
+3. **延迟**：在本地硬件上跑 7B 模型，首字块延迟约 50-200ms；同样的请求打到远端 API 约 500-2000ms。
 
-The trade-off is quality: a 7B is worse than a 70B. So the studio uses **local for execution** and **cloud for the meeting** (where the 3 leadership agents benefit from stronger reasoning).
+权衡在质量：7B 不如 70B。所以工作室采取**执行用本地、会议用云端**的策略（会议档位的 3 个领导型 Agent 能从更强的推理能力中受益）。
 
-## Hardware detection
+## 硬件检测
 
 ```ts
 async function getWinGpuInfo(): Promise<{ gpuName?: string; vramGB?: number } | null> {
@@ -27,21 +27,21 @@ async function getWinGpuInfo(): Promise<{ gpuName?: string; vramGB?: number } | 
   const txt = await execFileText("powershell", ps, 4500);
   const obj = JSON.parse(txt) as any;
   const name = typeof obj?.Name === "string" ? obj.Name : undefined;
-  const ram = typeof obj?.AdapterRAM === "number" ? obj.AdapterRAM : ...;
+  const ram = typeof obj?.AdapterRAM === "number" ? obj?.AdapterRAM : ...;
   const vramGB = typeof ram === "number" ? Math.round((ram / (1024 ** 3)) * 10) / 10 : undefined;
   return { gpuName: name, vramGB };
 }
 ```
 
-> Windows-only via PowerShell + CIM. On Linux/macOS, `vramGB` is `undefined` and the recommender falls back to RAM.
+> 仅在 Windows 上通过 PowerShell + CIM 实现。在 Linux/macOS 上，`vramGB` 为 `undefined`，推荐器会回退到内存判断。
 
-For RAM, `os.totalmem()` is cross-platform. Converted to GB:
+内存方面，`os.totalmem()` 跨平台可用。转换为 GB：
 
 ```ts
 function gb(n: number) { return Math.round((n / (1024 ** 3)) * 10) / 10; }
 ```
 
-## Model recommender
+## 模型推荐器
 
 ```ts
 function recommendLocalModels(vramGB?: number, memGB?: number): string[] {
@@ -57,18 +57,18 @@ function recommendLocalModels(vramGB?: number, memGB?: number): string[] {
 }
 ```
 
-This is a heuristic table — not a benchmark. The boss can always override per-agent via `/api/system/route`.
+这是一个启发式表格——不是基准测试。老板随时可以通过 `/api/system/route` 按 Agent 覆盖。
 
-## Host grade (S / A / B / C)
+## 主机档位（S / A / B / C）
 
-The advice endpoint also computes a coarse grade by combining VRAM, RAM, and a 1-shot bench:
+advice 端点还会结合 VRAM、内存和一次性的基准测试，给出一个粗略的档位：
 
 ```ts
 type Advice = {
   recommendedProviderId: string;        // "local" or "cloud"
   recommendedComputeSlots: number;      // 1-8
   grade: "S" | "A" | "B" | "C";
-  localAgentCap: number;                // how many agents can run in parallel
+  localAgentCap: number;                // 能并行跑多少个 Agent
   notes: string[];
   localModelsSuggested: string[];
   observed: {
@@ -81,11 +81,11 @@ type Advice = {
 };
 ```
 
-The grade drives `project_limit` (S=3, A=2, B/C=1) and the secretary HUD's "advice" callout.
+档位决定了 `project_limit`（S=3，A=2，B/C=1），也用于秘书 HUD 的"advice"提示。
 
-## Bench endpoint
+## 基准测试端点
 
-`POST /api/bench` issues a single `chat/completions` request and measures the first-chunk latency:
+`POST /api/bench` 发起一次 `chat/completions` 请求并测量首字块延迟：
 
 ```ts
 const body = {
@@ -95,102 +95,102 @@ const body = {
 };
 ```
 
-It returns:
+它返回：
 
 ```ts
 { ok: true, firstChunkMs: number, sampleChars: number, hint: string }
 ```
 
-`POST /api/bench/sweep` runs the bench at concurrency levels 1, 2, 3 and reports p50-like latency per level. This is the input the advice snapshot uses to refine its recommendation.
+`POST /api/bench/sweep` 会在并发度 1、2、3 下运行基准测试，并报告每个并发度下近似 p50 的延迟。这是 advice 快照用来细化其推荐结果的输入。
 
-## Streaming-aware SSE proxy
+## 感知流式的 SSE 代理
 
-The `/v1/*` proxy understands SSE. For each `data:` line it:
+`/v1/*` 代理理解 SSE。对每个 `data:` 行：
 
-1. Forwards the raw chunk to the client
-2. If the chunk contains `delta.content`, emits `llm.chunk` with the text
-3. If the chunk contains `delta.tool_calls`, emits `tool.start` per tool
-4. On `[DONE]`, emits `llm.message_done` and `tool.end` per active tool
+1. 将原始 chunk 转发给客户端
+2. 如果 chunk 中包含 `delta.content`，发出 `llm.chunk` 并附带文本
+3. 如果 chunk 中包含 `delta.tool_calls`，按工具发出 `tool.start`
+4. 在 `[DONE]` 时，发出 `llm.message_done` 并对每个活跃的工具发出 `tool.end`
 
-For non-SSE responses (some upstreams always return full JSON), the proxy still emits a single `llm.chunk` with the parsed content and a `llm.message_done`.
+对于非 SSE 响应（部分上游始终返回完整 JSON），代理仍会发出一个 `llm.chunk`，附带解析后的内容，以及一个 `llm.message_done`。
 
-## Handling weird upstream shapes
+## 处理奇怪的上游格式
 
-Small local models often return JSON wrapped in prose. The server has three fallbacks for meeting transcript parsing:
+小型本地模型经常返回包裹在自然语言中的 JSON。服务端提供了三种回退方案用于会议纪要解析：
 
-1. Strict JSON: `JSON.parse(text).lines[]`
-2. Strip ```json fences, then JSON.parse
-3. `sliceOutermostJsonObject` to grab the first `{...}` block
+1. 严格 JSON：`JSON.parse(text).lines[]`
+2. 去掉 ```json 围栏，再 `JSON.parse`
+3. `sliceOutermostJsonObject` 抓取第一个 `{...}` 块
 
-If all three fail, a regex on `^(秘书|制作人|技术总监|创意总监)\s*[:：]\s*(.+)$` parses line-by-line. This works for `Q: ... A: ...` patterns even when the model is too small to follow JSON instructions.
+如果以上三种都失败，会用一条正则 `^(Secretary|Producer|Technical Director|Creative Director)\s*[:：]\s*(.+)$` 逐行解析。当模型太小、无法遵循 JSON 指令时，这条正则对 `Q: ... A: ...` 模式仍然有效。
 
-## Cursor / Continue / Cline via proxy
+## 通过代理使用 Cursor / Continue / Cline
 
-The "killer feature" — any OpenAI-compatible client can point at the studio:
+"杀手级特性"——任何 OpenAI 兼容的客户端都可以指向工作室：
 
 ```json5
-// Cursor settings (or .vscode/settings.json)
+// Cursor 设置（或 .vscode/settings.json）
 {
   "openai.baseUrl": "http://127.0.0.1:8787/v1",
   "openai.apiKey": "ignored-by-proxy"
 }
 ```
 
-When the client sends a request with these headers:
+当客户端在请求中带上这些头时：
 
 ```
 x-studio-agent: <agentId>
 x-studio-task: <task description>
 ```
 
-The proxy:
+代理会：
 
-1. Forwards the request to the upstream
-2. Emits `agent.assign { task }` so the office can show the agent thinking
-3. Streams `llm.chunk` events as usual
-4. Returns the same SSE stream the client expects
+1. 将请求转发到上游
+2. 发出 `agent.assign { task }`，让办公区显示该 Agent 正在思考
+3. 像往常一样推送 `llm.chunk` 事件
+4. 返回客户端期望的同一个 SSE 流
 
-This is the `local-llm-integration` spec's load-bearing requirement:
+这就是 `local-llm-integration` 规范中承担关键作用的需求：
 
-> **Scenario: Cursor 通过代理可见流事件**
-> - **WHEN** 用户将 OpenAI-compatible 客户端（如 Cursor）`baseURL` 指向 `http://127.0.0.1:<studio-port>/v1`
-> - **THEN** 系统 SHALL 记录并分发 `llm.chunk` 与 `llm.message_done` 事件，供 Studio Web UI 实时显示
+> **场景：Cursor 通过代理流式发送可见事件**
+> - **当** 用户将 OpenAI 兼容客户端（如 Cursor）的 `baseURL` 指向 `http://127.0.0.1:<studio-port>/v1`
+> - **则** 系统应记录并派发 `llm.chunk` 和 `llm.message_done` 事件，供 Studio Web UI 实时展示
 
-## Recommended Ollama setup
+## 推荐的 Ollama 安装
 
 ```bash
-# Install Ollama
+# 安装 Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Pull a default model
+# 拉取默认模型
 ollama pull llama3.2
 ollama pull qwen2.5-coder:7b
 
-# Verify
+# 验证
 curl http://127.0.0.1:11434/v1/models
 ```
 
-Then in the studio, set `STUDIO_UPSTREAM_BASE_URL=http://127.0.0.1:11434/v1` (the default).
+然后在工作室中设置 `STUDIO_UPSTREAM_BASE_URL=http://127.0.0.1:11434/v1`（即默认值）。
 
-For larger models on a beefy GPU:
+若要在更强的 GPU 上跑更大的模型：
 
 ```bash
 ollama pull qwen2.5-coder:32b-instruct-q4_K_M
-# Update STUDIO_MODEL=qwen2.5-coder:32b-instruct-q4_K_M
+# 更新 STUDIO_MODEL=qwen2.5-coder:32b-instruct-q4_K_M
 ```
 
-## Troubleshooting
+## 故障排查
 
-| Symptom | Likely cause | Fix |
+| 症状 | 可能原因 | 修复 |
 |---------|--------------|-----|
-| `bench.ok = false`, `note: upstream_not_streaming` | Upstream doesn't support `stream: true` | Pick a different model, or set `STREAM=false` (not in v1) |
-| All requests fail with `error: upstream_5xx` | Ollama crashed, or no model loaded | `ollama list` and `ollama pull <model>` |
-| `firstChunkMs` always > 5000 | Model too large for VRAM; CPU fallback | Drop model size or upgrade hardware |
-| Studio says "no provider" | `STUDIO_UPSTREAM_BASE_URL` unreachable | `curl $STUDIO_UPSTREAM_BASE_URL/models` to verify |
-| Slow but works | GPU contention with other apps | Close games, browsers with WebGL, etc. |
+| `bench.ok = false`，`note: upstream_not_streaming` | 上游不支持 `stream: true` | 换个模型，或设置 `STREAM=false`（v1 暂不支持） |
+| 所有请求都报 `error: upstream_5xx` | Ollama 崩溃或没有模型加载 | `ollama list` 后 `ollama pull <model>` |
+| `firstChunkMs` 始终 > 5000 | 模型对 VRAM 而言太大，回退到 CPU | 降低模型规模或升级硬件 |
+| 工作室提示 "no provider" | `STUDIO_UPSTREAM_BASE_URL` 不可达 | 用 `curl $STUDIO_UPSTREAM_BASE_URL/models` 验证 |
+| 慢但能跑 | GPU 被其他应用争用 | 关掉游戏、带有 WebGL 的浏览器等 |
 
-## Next
+## 接下来
 
-- [H5 & Mini-Game Platforms](/docs/11-minigame-platforms) — when the local model is the game itself (e.g. text adventure)
-- [Finance & Model Routing](/docs/09-finance-and-routing) — how local vs cloud cost is tracked
-- [Tech Stack](/tech-stack) — exact versions
+- [H5 与小游戏平台](/docs/11-minigame-platforms) —— 当本地模型本身就是游戏时（例如文字冒险）
+- [财务与模型路由](/docs/09-finance-and-routing) —— 本地 vs 云端的成本如何被追踪
+- [技术栈](/tech-stack) —— 精确的版本号

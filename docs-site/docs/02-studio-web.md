@@ -1,41 +1,41 @@
-# 02 · Studio Web (Isometric Office)
+# 02 · Studio Web（等距办公室）
 
-The Studio Web is a **Phaser 3.90 isometric office** plus a stack of DOM panels (HUD, drawer, menus). It's the "stage" where the boss watches agents work, opens drawers, clicks desks, and saves previews.
+Studio Web 是一个 **Phaser 3.90 等距办公室**，外加一组 DOM 面板（HUD、抽屉、菜单）。它是老板盯 Agent 工作、打开抽屉、点击工位、保存预览的"舞台"。
 
-**Source:** `apps/studio-web/src/main.ts` (~4,250 LOC) · `src/style.css` · `index.html` · `vite.config.ts`
+**源码：** `apps/studio-web/src/main.ts`（约 4,250 LOC） · `src/style.css` · `index.html` · `vite.config.ts`
 
-## What you see on first load
+## 首次加载时的界面
 
 ```mermaid
 flowchart TB
-  subgraph HUD["HUD (top-left)"]
-    H1["Studio title + agent count + WS status + compute tier"]
-    H2["Secretary banner (narrator)"]
-    H3["Team roster list"]
-    H4["Event log"]
+  subgraph HUD["HUD（左上）"]
+    H1["Studio 标题 + Agent 数量 + WS 状态 + compute 档位"]
+    H2["Secretary banner（叙述者）"]
+    H3["团队名册"]
+    H4["事件日志"]
   end
 
-  subgraph TR["Top-right"]
-    TR1["设置 (Settings)"]
-    TR2["策略 (Policy)"]
+  subgraph TR["右上"]
+    TR1["Settings"]
+    TR2["Policy"]
   end
 
-  subgraph MB["Menu bar"]
-    MB1["招聘/会议室/显示器/部门/队列/财务/通知"]
+  subgraph MB["菜单栏"]
+    MB1["Recruiting / Meeting Room / Monitor / Department / Queue / Finance / Notifications"]
   end
 
-  subgraph Stage["Phaser stage"]
-    S1["Isometric office with desks"]
-    S2["Rooms: Meeting / Café / Arcade / Gym / Cosplay / Restroom / Pool"]
-    S3["Minimap (bottom-right)"]
+  subgraph Stage["Phaser 舞台"]
+    S1["带工位的等距办公室"]
+    S2["会议室：Meeting / Café / Arcade / Gym / Cosplay / Restroom / Pool"]
+    S3["小地图（右下）"]
   end
 
-  subgraph Drawer["Drawer (modal)"]
+  subgraph Drawer["抽屉（模态）"]
     D1["section: recruit · settings · policy · meeting · monitor · dept · tasks · finance · notify · manage"]
   end
 ```
 
-## Isometric projection (Kairo-like)
+## 等距投影（Kairo 风格）
 
 ```ts
 const ISO = { tileW: 64, tileH: 32, originX: 140, originY: 140 };
@@ -47,13 +47,13 @@ function isoToScreen(gx: number, gy: number) {
 }
 ```
 
-The "office" is a 2D grid `(gx, gy)` rendered to a flat top-down diamond. Each desk sits on a `(gx, gy)` cell; the office is wide and tall enough for ~30 desks in distinct department clusters.
+"办公室" 是一个渲染为平顶菱形的 2D 网格 `(gx, gy)`。每个工位占据一个 `(gx, gy)` 格；办公室足够宽、足够高，能容纳按部门分布的约 30 个工位。
 
-The grid is panned by **dragging on empty space** and zoomed with the **mouse wheel** (clamped 0.6× – 2.0×). The minimap is a second camera at 0.18× zoom that shows the same scene; clicking the minimap jumps the main camera.
+网格通过 **在空白区域拖拽** 平移，通过 **鼠标滚轮** 缩放（夹在 0.6× – 2.0×）。小地图是一台以 0.18× 缩放显示同一场景的第二相机；点击小地图会跳到主相机对应位置。
 
-## The `OfficeScene` class
+## `OfficeScene` 类
 
-This is the Phaser `Scene` that owns desks, agents, room decorations, and the idle/move tweens. Its state is:
+这是 Phaser 的 `Scene`，负责工位、Agent、会议室装饰以及 idle / move 补间动画。它的状态如下：
 
 ```ts
 type Desk = {
@@ -85,25 +85,25 @@ type Desk = {
 };
 ```
 
-A `Desk` is one agent's "home cell" plus all the visual gizmos that decorate it: a label, a status icon, an avatar sprite, a desk sprite, an optional hit rect, and a transient "speech bubble" that shows the latest streaming text.
+`Desk` 是一个 Agent 的"家格子"，以及装饰它的所有可视化元素：标签、状态图标、头像精灵、工位精灵、可选的 hit 矩形，以及一个显示最新流式文本的临时"对话气泡"。
 
-## Departments and visual layout
+## 部门与可视化布局
 
-Departments cluster desks in named regions:
+部门按命名区域聚类工位：
 
-| Department | Where | Agents |
+| 部门 | 位置 | Agent |
 |-----------|-------|--------|
-| `leadership` | Top row, central | `producer`, `technical-director`, `creative-director` |
-| `design` | Near leadership | `game-designer`, `systems-designer`, `level-designer`, `economy-designer`, `narrative-director`, `writer` |
-| `programming` | Mid-left | `lead-programmer`, `gameplay-programmer`, `engine-programmer`, `ai-programmer`, `network-programmer`, `tools-programmer`, `ui-programmer` |
-| `art_audio` | Mid-right | `art-director`, `audio-director`, `sound-designer`, `technical-artist` |
-| `narrative` | Bottom-left | `narrative-director`, `writer`, `localization-lead`, `community-manager` |
-| `qa_release` | Bottom-right | `qa-lead`, `qa-tester`, `release-manager`, `devops-engineer`, `security-engineer`, `performance-analyst` |
-| `other` | Scattered | `prototyper`, `accessibility-specialist`, `analytics-engineer`, `live-ops-designer`, `world-builder`, `ux-designer` |
+| `leadership` | 顶部一行，居中 | `producer`、`technical-director`、`creative-director` |
+| `design` | 紧邻 leadership | `game-designer`、`systems-designer`、`level-designer`、`economy-designer`、`narrative-director`、`writer` |
+| `programming` | 中部偏左 | `lead-programmer`、`gameplay-programmer`、`engine-programmer`、`ai-programmer`、`network-programmer`、`tools-programmer`、`ui-programmer` |
+| `art_audio` | 中部偏右 | `art-director`、`audio-director`、`sound-designer`、`technical-artist` |
+| `narrative` | 左下 | `narrative-director`、`writer`、`localization-lead`、`community-manager` |
+| `qa_release` | 右下 | `qa-lead`、`qa-tester`、`release-manager`、`devops-engineer`、`security-engineer`、`performance-analyst` |
+| `other` | 散布 | `prototyper`、`accessibility-specialist`、`analytics-engineer`、`live-ops-designer`、`world-builder`、`ux-designer` |
 
-Rooms (Meeting, Café, Arcade, Gym, Cosplay, Restroom, Pool) sit at the bottom of the map and have door markers so agents can walk in.
+会议室（Meeting、Café、Arcade、Gym、Cosplay、Restroom、Pool）位于地图底部，带有门标记，Agent 可以走进去。
 
-## Agent status state machine
+## Agent 状态机
 
 ```mermaid
 stateDiagram-v2
@@ -116,81 +116,81 @@ stateDiagram-v2
   tool --> streaming: tool.end (ok)
   tool --> blocked: tool.end (ok=false)
   streaming --> error: job.failed
-  any --> blocked: job.failed (upstream error)
-  blocked --> idle: user intervention (clear)
-  error --> idle: user intervention (clear)
-  any --> offline: WS disconnect > 30s
-  offline --> idle: WS reconnect
+  any --> blocked: job.failed (上游错误)
+  blocked --> idle: 用户干预（清除）
+  error --> idle: 用户干预（清除）
+  any --> offline: WS 断连 > 30s
+  offline --> idle: WS 重连
 ```
 
-A secretary HUD loop runs every ~10 seconds and looks for: an agent in `error`, an agent stuck in `streaming`/`thinking`/`tool`/`blocked` for 2-60 minutes, a backlog (queue ≥ 5 with 0 running), or a project with no preview. Each condition is throttled to once per 70-130s per kind to avoid spam.
+一个 secretary HUD 循环每约 10 秒运行一次，查找：处于 `error` 的 Agent、卡在 `streaming` / `thinking` / `tool` / `blocked` 长达 2-60 分钟的 Agent、积压（队列 ≥ 5 且 0 运行中）、没有预览的项目。每种情况每 70-130 秒最多触发一次，避免刷屏。
 
-## The "secretary"
+## "Secretary"
 
-The secretary is a chatty narrator implemented entirely in `main.ts` (~400 LOC of HUD code). It:
+Secretary 是一个话痨叙述者，全部在 `main.ts` 中实现（约 400 LOC 的 HUD 代码）。它会：
 
-- Detects idle (>2 min in `thinking`/`tool`/`blocked`/`streaming`) and reminds the boss
-- Detects backlog (queue ≥ 5, 0 running) and suggests checking `ComputeSlots`
-- Detects missing preview and tells the boss the URL
-- Detects upstream errors and surfaces the upstream message
-- Detects when an agent finishes streaming a complete HTML document and triggers auto-save
+- 检测空闲（在 `thinking` / `tool` / `blocked` / `streaming` 超过 2 分钟）并提醒老板
+- 检测积压（队列 ≥ 5，0 运行中）并建议检查 `ComputeSlots`
+- 检测缺少预览并告诉老板 URL
+- 检测上游错误并展示上游消息
+- 检测 Agent 完成一次完整 HTML 文档的流式输出并触发自动保存
 
-It's deliberately repetitive — it pushes the same line at most once every `minGapMs` per agent, so a long-running LLM doesn't flood the log.
+它刻意重复——对同一 Agent 在每 `minGapMs` 毫秒内最多推同一句话一次，避免长跑的大模型刷爆日志。
 
-## "Department" drawer
+## "Department" 抽屉
 
-The department drawer shows per-department KPIs:
+部门抽屉展示每部门的 KPI：
 
-- **Output** — `file changes` + `LLM chunks` over the last event window
-- **Bugs** — `tool.end.ok=false` + `job.finished.ok=false`
-- **Block** — count of agents in `blocked` / `error` state
-- A short tailored summary per department ("QA watch: focus on failed jobs and tool errors")
+- **Output** —— 在最近事件窗口内的 `file changes` + `LLM chunks`
+- **Bugs** —— `tool.end.ok=false` + `job.finished.ok=false`
+- **Block** —— 处于 `blocked` / `error` 状态的 Agent 数
+- 每部门一段量身定制的摘要（"QA watch: focus on failed jobs and tool errors"）
 
-Three actions are wired:
+三个动作已接线：
 
-- **通过 (Approve)** → enqueue a "summary + next steps" task to the producer for that project
-- **驳回 (Reject)** → enqueue a "list issues and re-do" task
-- **继续/重做 (Redo)** → enqueue a "confirm goals and re-execute" task
+- **Approve** → 给该项目的 Producer 入队一个 "summary + next steps" 任务
+- **Reject** → 入队一个 "list issues and re-do" 任务
+- **Redo** → 入队一个 "confirm goals and re-execute" 任务
 
-Each one is a real `POST /api/dept/workorder/action` — the policy decides the agent's provider.
+每个动作都是真实的 `POST /api/dept/workorder/action` ——由策略决定 Agent 的提供方。
 
-## "Meeting" drawer — the kickoff flow
+## "Meeting" 抽屉——Kickoff 流程
 
-1. Boss types a `topic` (or "（待补充主题）")
-2. Toggles `Skip LLM` for a rule-based meeting
-3. Clicks **开始会议 (Start meeting)**
-4. UI shows a streaming transcript: each line is `Speaker: text`
-5. Three speakers take turns: 制作人, 技术总监, 创意总监
-6. Boss sees a **charter form** (goal, milestones, nodes) they can edit
-7. **归档 (Archive)** freezes a version
-8. **保存草稿 (Save draft)** persists without bumping version
-9. When the draft diverges from the archive, the meeting shows `待确认偏离: ...`
+1. 老板输入 `topic`（或 "(topic to be added)"）
+2. 勾选 `Skip LLM` 走基于规则的会议
+3. 点击 **Start meeting**
+4. UI 展示流式转写：每行形如 `Speaker: text`
+5. 三位 Speaker 轮流发言：Producer、Technical Director、Creative Director
+6. 老板看到一份**章程表单**（goal、milestones、nodes），可以编辑
+7. **Archive** 冻结一个版本
+8. **Save draft** 持久化但不动版本号
+9. 当草稿与归档偏离时，会议视图展示 `Pending drift: ...`
 
-The auto-kickoff checkbox (in the meeting tab) starts a producer/TD/CD round immediately after archiving the charter.
+会议标签页里的 auto-kickoff 复选框会在归档章程后立即启动 Producer / TD / CD 轮转。
 
-## "Monitor" drawer — preview & history
+## "Monitor" 抽屉——预览与历史
 
-- An iframe (`#previewFrame`) loads `/preview?projectId=X&v=...`
-- A textarea accepts HTML (with auto-extraction of `<!doctype html>...</html>` from prose)
-- A history list shows past `index.html` snapshots; click to view, or "restore" to overwrite current
-- The iframe auto-refreshes when `studio-preview-saved` event fires
+- 一个 iframe（`#previewFrame`）加载 `/preview?projectId=X&v=...`
+- 一个 textarea 接受 HTML（自动从散文中抽取 `<!doctype html>...</html>`）
+- 历史列表展示过去的 `index.html` 快照；点击查看，或 "restore" 覆盖当前
+- iframe 在 `studio-preview-saved` 事件触发时自动刷新
 
-The "auto-save" magic: when the reducer detects that an agent's `streamDraft` ends with `</html>`, it POSTs to `/api/preview/save` automatically. The secretary HUD narrates "秘书：检测到完整 HTML，已自动保存到显示器".
+"自动保存"的魔法：当 reducer 检测到某 Agent 的 `streamDraft` 以 `</html>` 结尾时，自动 POST 到 `/api/preview/save`。Secretary HUD 会旁白 "Secretary: complete HTML detected, auto-saved to the monitor"。
 
-## DOM / Phaser interaction (the famous "click-through" bug)
+## DOM / Phaser 交互（著名的"点击穿透" bug）
 
-The DOM HUD and drawer sit on top of the Phaser canvas. Two common bugs:
+DOM HUD 与抽屉盖在 Phaser canvas 之上。两个常见 bug：
 
-1. A DOM region without `pointer-events: auto` lets clicks "fall through" to the canvas, accidentally panning/zooming
-2. A canvas pointer event triggered from a DOM interaction area causes the wrong action
+1. 缺少 `pointer-events: auto` 的 DOM 区域会让点击"穿透"到 canvas，意外触发平移 / 缩放
+2. 从 DOM 交互区域触发的 canvas 指针事件会导致错误的动作
 
-The fix lives in `setupControls()` and `shouldIgnoreGameObjectTap()`:
+修复落在 `setupControls()` 与 `shouldIgnoreGameObjectTap()`：
 
 ```ts
 private isClientOverDomUi(clientX: number, clientY: number): boolean {
-  // geometric check: inside #hud / #topRightBar / #menuBar / #drawer / #drawerMask?
+  // 几何检测：是否位于 #hud / #topRightBar / #menuBar / #drawer / #drawerMask 内？
   if (inside(document.getElementById("hud"))) return true;
-  // ... etc
+  // ... 等等
   const el = document.elementFromPoint(clientX, clientY);
   if (!el || el === canvas) return false;
   return true;
@@ -204,11 +204,11 @@ private shouldIgnoreGameObjectTap(pointer: Phaser.Input.Pointer, maxDragPx = 12)
 }
 ```
 
-This is encoded as a **capability** (`studio-web-ui`) and an **archived change** (`studio-web-ui-click-through-fix`).
+这被编码成一份**能力**（`studio-web-ui`）以及一份**已归档的变更**（`studio-web-ui-click-through-fix`）。
 
-## WebSocket state reducer
+## WebSocket 状态 reducer
 
-The front-end maintains a local copy of `StudioState` and reduces every event into it:
+前端维护一份 `StudioState` 的本地副本，把每个事件都规约进去：
 
 ```ts
 private reduce(ev: StudioEventEnvelope) {
@@ -216,12 +216,12 @@ private reduce(ev: StudioEventEnvelope) {
   if (!aid) return;
   const before = this.state.agents[aid] ?? { agentId: aid, status: "idle" };
   const next: StudioAgentState = { ...before, lastTs: ev.ts };
-  // type-specific update
+  // 按类型更新
   switch (ev.type) {
     case "llm.chunk": next.status = "streaming"; next.streamDraft += ev.payload.text; break;
     case "llm.message_done": next.status = "idle"; next.summary = next.streamDraft; next.streamDraft = ""; break;
     case "tool.start": next.status = "tool"; break;
-    case "tool.end": next.status = "tool"; /* keep status, mark end */ break;
+    case "tool.end": next.status = "tool"; /* 保持状态，标记结束 */ break;
     case "agent.assign": next.status = "thinking"; next.jobId = ev.payload.jobId; break;
     case "job.failed": next.status = "error"; break;
   }
@@ -229,9 +229,9 @@ private reduce(ev: StudioEventEnvelope) {
 }
 ```
 
-The reducer is throttled to repaint at most every 80ms (configurable via `lastPaint`).
+reducer 被节流为最多每 80ms 重绘一次（可通过 `lastPaint` 配置）。
 
-## Build & dev
+## 构建与开发
 
 ```bash
 cd apps/studio-web
@@ -240,16 +240,16 @@ npm run build      # vite build → dist/
 npm run preview    # vite preview on 127.0.0.1:5173
 ```
 
-The Vite config pins port (`strictPort: true`) — if 5173 is taken, it fails loud.
+Vite 配置固定端口（`strictPort: true`）——如果 5173 被占用，会大声报错。
 
-## Why Phaser (and not React)?
+## 为什么用 Phaser（而不是 React）？
 
-- Phaser is **rendering-first**: cheap sprites, free scroll/pan/zoom, free tween engine, free depth sorting. The office has 30+ sprites + tweens + a second camera (minimap) — all of that is what Phaser does in 10 lines.
-- The DOM is **forms-first**: HUD, drawer, settings. React would add ~50KB and zero benefit for a forms-heavy panel.
-- The split mirrors the [Kairosoft game pattern](https://en.wikipedia.org/wiki/Kairosoft): the office is a "tycoon view" of the game, and the boss interacts with it like a board.
+- Phaser **渲染优先**：便宜的精灵、自带滚动 / 平移 / 缩放、自带补间引擎、自带深度排序。办公室有 30+ 个精灵 + 补间 + 一台第二相机（小地图）——这一切 Phaser 用 10 行就能搞定。
+- DOM **表单优先**：HUD、抽屉、Settings。React 会带来约 50KB，对一个表单密集的面板没有任何收益。
+- 这种拆分复刻了 [Kairosoft 游戏的模式](https://en.wikipedia.org/wiki/Kairosoft)：办公室是游戏的"tycoon 视图"，老板像操作棋盘一样与之交互。
 
-## Next
+## 接下来
 
-- [Shared Events Bus](/docs/03-events-bus) — every event the front-end reduces
-- [Agent Roster & Departments](/docs/04-agents-and-departments) — what each agent is good for
-- [Meeting Room & Project Charter](/docs/06-meeting-and-charter) — the kickoff flow in detail
+- [共享事件总线](/docs/03-events-bus)——前端归约的每一个事件
+- [Agent 名册与部门](/docs/04-agents-and-departments)——每个 Agent 的专长
+- [会议室与项目章程](/docs/06-meeting-and-charter)——kickoff 流程的细节

@@ -1,39 +1,39 @@
-# 05 · OpenSpec Change Control
+# 05 · OpenSpec 变更控制
 
-AiGameAgent follows the **OpenSpec** workflow: every meaningful change ships as a versioned `change/` directory with a proposal, design, tasks, and a delta spec. Once archived, the change's deltas fold into a `specs/<capability>/spec.md` document.
+AiGameAgent 遵循 **OpenSpec** 工作流：每一项有意义的变更都以一个版本化的 `change/` 目录形式交付，内含 proposal、design、tasks 与一份 delta 规范。归档之后，变更的 delta 会并入 `specs/<capability>/spec.md` 文档。
 
-**Source:** `openspec/` (1 archived change, 9 capability specs)
+**Source:** `openspec/`（1 份已归档变更、9 份能力规范）
 
-## Why OpenSpec?
+## 为什么要用 OpenSpec？
 
-The project is meant to be read by **both humans and AI agents**. OpenSpec gives both a stable answer to "what does the system do?" by:
+项目希望**同时被人类与 AI Agent 阅读**。OpenSpec 通过以下方式，为两者提供了对「系统到底做什么」的稳定答案：
 
-1. **Capabilities** (`specs/<capability>/spec.md`) are the canonical "what" — written in `### Requirement` / `#### Scenario` form
-2. **Changes** (`changes/<id>/`) describe "what's changing" — `proposal.md` (why), `design.md` (how), `tasks.md` (work), and a `delta spec` patch
-3. The `.openspec.yaml` per change links to the affected capabilities
+1. **能力**（`specs/<capability>/spec.md`）是规范的「是什么」——以 `### Requirement` / `#### Scenario` 形式撰写
+2. **变更**（`changes/<id>/`）描述「改了什么」——`proposal.md`（为什么）、`design.md`（怎么做）、`tasks.md`（工作清单），以及一份 `delta spec` 补丁
+3. 每个变更下的 `.openspec.yaml` 链接到受影响的能力
 
-A new contributor (or AI) can read one spec and know exactly what the system does, then read a change to know what just shifted.
+一个新贡献者（或 AI）读一份规范就能准确知道系统在做什么，再读一份变更就能知道刚刚发生了什么调整。
 
-## The 9 current capabilities
+## 当前的 9 项能力
 
-| Capability | Path | Purpose |
+| 能力 | 路径 | 用途 |
 |-----------|------|---------|
-| `studio-events-bus` | `specs/studio-events-bus/spec.md` | Unified event envelope, JSONL + WebSocket fan-out |
-| `openai-compat-proxy-logging` | `specs/openai-compat-proxy-logging/spec.md` | The `/v1/*` proxy + SSE chunk parsing |
-| `local-llm-integration` | `specs/local-llm-integration/spec.md` | The Cursor-via-proxy + compute slot story |
-| `studio-hiring-queue` | `specs/studio-hiring-queue/spec.md` | ComputeSlots, priority queue, hire roster |
-| `studio-model-routing` | `specs/studio-model-routing/spec.md` | Three-tier (save/balance/quality) routing |
-| `studio-meeting-room` | `specs/studio-meeting-room/spec.md` | The meeting drawer + leadership round |
-| `studio-project-charter` | `specs/studio-project-charter/spec.md` | Per-project charter (goal / milestones / nodes) |
-| `studio-change-control` | `specs/studio-change-control/spec.md` | Archive + drift detection |
-| `studio-finance-telemetry` | `specs/studio-finance-telemetry/spec.md` | Tokens / cost / failures rollup |
-| `studio-web-ui` | `specs/studio-web-ui/spec.md` | Isometric office + DOM HUD + interactions |
+| `studio-events-bus` | `specs/studio-events-bus/spec.md` | 统一的事件信封，JSONL + WebSocket 广播 |
+| `openai-compat-proxy-logging` | `specs/openai-compat-proxy-logging/spec.md` | `/v1/*` 代理 + SSE 分块解析 |
+| `local-llm-integration` | `specs/local-llm-integration/spec.md` | Cursor-经代理 + 计算槽的故事 |
+| `studio-hiring-queue` | `specs/studio-hiring-queue/spec.md` | ComputeSlots、优先级队列、雇佣花名册 |
+| `studio-model-routing` | `specs/studio-model-routing/spec.md` | 三档（省 / 平衡 / 质量）路由 |
+| `studio-meeting-room` | `specs/studio-meeting-room/spec.md` | 会议室抽屉 + 领导层轮询 |
+| `studio-project-charter` | `specs/studio-project-charter/spec.md` | 每个项目的章程（目标 / 里程碑 / 节点） |
+| `studio-change-control` | `specs/studio-change-control/spec.md` | 归档 + 漂移检测 |
+| `studio-finance-telemetry` | `specs/studio-finance-telemetry/spec.md` | Token / 成本 / 失败聚合 |
+| `studio-web-ui` | `specs/studio-web-ui/spec.md` | 等距办公室 + DOM HUD + 交互 |
 
-(That's 10, not 9 — the "9" estimate missed `studio-web-ui`. The point is: the spec set is the truth of the system.)
+（实际上是 10 项，不是 9 ——「9」这个估算漏掉了 `studio-web-ui`。重点是：这套规范才是系统的真相。）
 
-## Capability spec anatomy
+## 能力规范的结构
 
-A capability spec is a `spec.md` with this structure:
+能力规范是 `spec.md`，结构如下：
 
 ```markdown
 # <capability-id> Specification
@@ -52,21 +52,21 @@ The system SHALL <do this thing>.
 - **AND THEN** <additional outcome>
 ```
 
-Example (from `studio-events-bus`):
+示例（来自 `studio-events-bus`）：
 
 ```markdown
-### Requirement: 统一事件 envelope
-系统 SHALL 使用统一的事件 envelope 表达所有 Studio 事件（LLM/工具/文件变更/房间/队列/招聘等）...
+### Requirement: Unified event envelope
+The system SHALL use a unified event envelope to express all Studio events (LLM/tool/file change/room/queue/hire, etc.)...
 
-#### Scenario: 事件被记录并可分发
-- **WHEN** 系统产生任意一条 Studio 事件
-- **THEN** 事件 SHALL 以单行 JSON 追加写入事件日志（JSONL）
-- **AND THEN** 事件 SHALL 被实时分发给所有 WebSocket 订阅者
+#### Scenario: Events are logged and broadcast
+- **WHEN** the system produces any Studio event
+- **THEN** the event SHALL be appended as a single line of JSON to the event log (JSONL)
+- **AND THEN** the event SHALL be broadcast in real time to all WebSocket subscribers
 ```
 
-The `SHALL` keyword is deliberate — it marks the requirement as testable.
+`SHALL` 这个关键词是有意为之——它把这条需求标记为可测试。
 
-## Change directory anatomy
+## 变更目录结构
 
 ```
 openspec/changes/
@@ -78,53 +78,53 @@ openspec/changes/
     └── specs/<cap>/spec.md  # delta: ADDED/MODIFIED/REMOVED Requirements
 ```
 
-The shipped example: `studio-web-ui-click-through-fix/` (already archived).
+已交付的示例：`studio-web-ui-click-through-fix/`（已归档）。
 
-### `proposal.md` (excerpt)
+### `proposal.md`（节选）
 
 ```markdown
 ## Why
 
-左侧 HUD 与抽屉叠在 Phaser 画布之上时，部分区域因 `pointer-events` 未正确命中，
-导致点击「穿透」到下层画布，触发拖拽/缩放而非预期 UI 操作。
+When the left HUD and drawers overlay the Phaser canvas, some areas fail to register `pointer-events` correctly,
+so clicks "pass through" to the canvas below and trigger drag/zoom instead of the intended UI actions.
 
 ## What Changes
 
-- 为 `#hud` 顶栏 `.row` 显式开启 `pointer-events: auto`，...
-- 为抽屉遮罩与抽屉容器显式声明 `pointer-events: auto`，...
+- Explicitly set `pointer-events: auto` on the `#hud` top-bar `.row`, ...
+- Explicitly declare `pointer-events: auto` on the drawer overlay and drawer container, ...
 
 ## Capabilities
 
 ### New Capabilities
-（无独立新 capability；行为收敛在 `studio-web-ui`。）
+(none — behaviour is folded into `studio-web-ui`.)
 
 ### Modified Capabilities
-- `studio-web-ui`：补充交互命中与层叠相关需求（见 delta spec）。
+- `studio-web-ui`: add requirements on hit-testing and stacking (see delta spec).
 
 ## Impact
 
-- **代码**：`apps/studio-web/src/style.css` 仅样式调整。
-- **行为**：顶栏与抽屉区域点击更稳定。
+- **Code**: `apps/studio-web/src/style.css` only — style tweaks.
+- **Behaviour**: top-bar and drawer clicks are more reliable.
 ```
 
-### `tasks.md` (excerpt — 1-line checklist style)
+### `tasks.md`（节选 —— 单行清单风格）
 
 ```markdown
-## 1. 样式补齐
+## 1. Style completion
 
-- [ ] 显式开启 `.hud .row` 的 `pointer-events: auto`
-- [ ] 抽屉遮罩与容器显式 `pointer-events: auto`
+- [ ] Explicitly set `pointer-events: auto` on `.hud .row`
+- [ ] Explicitly set `pointer-events: auto` on drawer overlay and container
 
-## 2. 验证
+## 2. Verification
 
-- [ ] 拖拽 / 缩放 / 点击 HUD 不再被画布误吞
+- [ ] Drag / zoom / HUD clicks are no longer swallowed by the canvas
 ```
 
-### `design.md` (free-form — design rationale)
+### `design.md`（自由形式 —— 设计理由）
 
-A short narrative explaining the trade-offs and the chosen approach. Not enforced by the schema; here for human readers.
+简短的叙述，解释权衡与所选方案。schema 不强制格式；这里是为人类读者而写。
 
-## How a change becomes a spec
+## 变更如何变成规范
 
 ```
 1. Author opens openspec/changes/<id>/ with proposal/design/tasks + delta specs
@@ -135,15 +135,15 @@ A short narrative explaining the trade-offs and the chosen approach. Not enforce
 6. tasks.md items get checked off (or rolled into a new change)
 ```
 
-The archive is the **commit moment** — once archived, the spec is the truth, and the change is gone from the change set.
+归档是**提交时刻**——一旦归档，规范就是真相，变更也会从变更集合中移除。
 
-## Drift detection (the "did the charter change?" loop)
+## 漂移检测（「章程是否改过？」循环）
 
-`studio-change-control` codifies the rule:
+`studio-change-control` 把这条规则写实：
 
 > The system SHALL in the presence of a "latest archived charter" perform drift detection: if `goal`, `milestones`, or `nodes` change, declare drift.
 
-Server-side, the rule is implemented in `driftKinds(draft, archived)`:
+在服务端，这条规则由 `driftKinds(draft, archived)` 实现：
 
 ```ts
 function driftKinds(draft: CharterBody, archived: CharterArchived | null): string[] {
@@ -156,17 +156,17 @@ function driftKinds(draft: CharterBody, archived: CharterArchived | null): strin
 }
 ```
 
-Each non-empty drift kind creates a `change.detected` event with `kinds: [...]`. The meeting room surfaces them as `待确认偏离: ...` and offers a one-click clear.
+每一种非空的漂移类型都会产生一条带 `kinds: [...]` 的 `change.detected` 事件。会议室会以「待处理漂移：...」的形式呈现，并提供一键清除。
 
-## OpenSpec config (`openspec/config.yaml`)
+## OpenSpec 配置（`openspec/config.yaml`）
 
 ```yaml
 schema: spec-driven
 ```
 
-The `context` and per-artifact `rules` fields are commented out — they're placeholders for projects that want to inject project-wide AI context (e.g. "tech stack: TypeScript, Node.js"). AiGameAgent intentionally leaves this blank so the project-wide context lives in `.claude/docs/` instead.
+`context` 字段和各产物的 `rules` 字段被注释掉了——它们是占位符，供希望注入项目级 AI 上下文（例如「技术栈：TypeScript、Node.js」）的项目使用。AiGameAgent 故意把它留空，让项目级上下文落在 `.claude/docs/` 下。
 
-## The full flow in one diagram
+## 完整流程图
 
 ```mermaid
 flowchart LR
@@ -175,23 +175,23 @@ flowchart LR
   Draft -->|archive| Archive[Latest Archive vN]
   Draft -.drift.->|compute| DriftKinds
   DriftKinds -->|non-empty| ChangeDetected[change.detected event]
-  ChangeDetected -->|UI shows| Pending[待确认偏离]
+  ChangeDetected -->|UI shows| Pending[Pending drift]
   Pending -->|click clear| ChangeCleared[change.cleared event]
   Archive -.normArr compare.-> DriftKinds
 ```
 
-## OpenSpec tooling
+## OpenSpec 工具
 
-The project doesn't ship a custom CLI — the `.cursor/commands/opsx-*.md` commands are **Cursor slash command** bindings that map to OpenSpec's CLI (`opsx`). To use them:
+项目不内置自定义 CLI——`.cursor/commands/opsx-*.md` 命令是**Cursor 的斜杠命令**绑定，对应 OpenSpec 的 CLI（`opsx`）。使用方法：
 
-1. Have OpenSpec CLI installed (`@open-spec/cli` or similar)
-2. In Cursor, type `/opsx-propose` to scaffold a new change
-3. The slash command will create `openspec/changes/<id>/` with the right files
+1. 安装 OpenSpec CLI（`@open-spec/cli` 或类似）
+2. 在 Cursor 中，输入 `/opsx-propose` 来脚手架新变更
+3. 该斜杠命令会在 `openspec/changes/<id>/` 下创建所需文件
 
-The team's working rule is: **propose → review → design → tasks → code → archive**. Skipping a step is allowed for hotfixes (one-line changes) but discouraged.
+团队的工作准则是：**propose → review → design → tasks → code → archive**。紧急修复（单行变更）允许跳过步骤，但不鼓励这么做。
 
-## Next
+## 接下来
 
-- [Meeting Room & Project Charter](/docs/06-meeting-and-charter) — the meeting flow that the spec describes
-- [Agent Roster & Departments](/docs/04-agents-and-departments) — the agents mentioned in leadership meeting
-- [Local LLM Integration](/docs/10-local-llm) — the spec that codifies the Cursor-via-proxy story
+- [会议室与项目章程](/docs/06-meeting-and-charter) —— 规范所描述的会议流程
+- [智能体花名册与部门](/docs/04-agents-and-departments) —— 领导层会议中提到的 Agent
+- [Local LLM 集成](/docs/10-local-llm) —— 把 Cursor-经代理的故事写实的规范

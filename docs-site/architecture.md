@@ -1,34 +1,34 @@
-# Architecture
+# 架构
 
-AiGameAgent Studio is a **monorepo with three workspaces** plus an OpenSpec change-control layer, designed to run a small virtual game studio inside a single Node.js process.
+AiGameAgent Studio 是一个**包含三个工作区的 monorepo**，外加一层 OpenSpec 变更控制，目标是在单个 Node.js 进程内运行一座小型虚拟游戏工作室。
 
-## High-level diagram
+## 全局架构图
 
 ```mermaid
 flowchart TB
-  subgraph Boss["🧑‍💼 Boss (browser)"]
-    UI["Studio Web UI<br/>(Phaser office + DOM HUD)"]
+  subgraph Boss["🧑‍💼 老板（浏览器）"]
+    UI["Studio Web UI<br/>（Phaser 办公室 + DOM HUD）"]
   end
 
-  subgraph Server["Node.js process (port 8787)"]
-    HTTP["HTTP server<br/>(node:http)"]
-    WS["WebSocket /ws<br/>(ws)"]
-    FS["chokidar FS watcher"]
-    Queue["Job queue +<br/>ComputeSlots scheduler"]
-    Hire["Hire roster<br/>(per-agent provider)"]
-    Policy["Studio Policy<br/>(producer/TD/CD)"]
-    Charter["Project Charter<br/>(goal/milestones/nodes)"]
-    Finance["Finance summary<br/>(tokens/cost/failures)"]
-    Proxy["OpenAI proxy /v1/*"]
+  subgraph Server["Node.js 进程（端口 8787）"]
+    HTTP["HTTP server<br/>（node:http）"]
+    WS["WebSocket /ws<br/>（ws）"]
+    FS["chokidar 文件系统监听器"]
+    Queue["任务队列 +<br/>ComputeSlots 调度器"]
+    Hire["雇佣名册<br/>（按 Agent 维度的提供方）"]
+    Policy["工作室策略<br/>（Producer / TD / CD）"]
+    Charter["项目章程<br/>（目标 / 里程碑 / 节点）"]
+    Finance["财务汇总<br/>（token / 成本 / 失败）"]
+    Proxy["OpenAI 代理 /v1/*"]
   end
 
-  subgraph Local["Local LLM"]
+  subgraph Local["本地大模型"]
     Ollama["Ollama<br/>http://127.0.0.1:11434/v1"]
     vLLM["vLLM / LM Studio"]
   end
 
-  subgraph Cloud["Optional Cloud"]
-    API["OpenAI / DeepSeek /<br/>Doubao / 自建"]
+  subgraph Cloud["可选云端"]
+    API["OpenAI / DeepSeek /<br/>Doubao / 自托管"]
   end
 
   UI -->|fetch /api/*<br/>WS /ws| HTTP
@@ -47,52 +47,52 @@ flowchart TB
   Queue -->|enqueue to LLM| Proxy
 ```
 
-## Layered breakdown
+## 分层拆解
 
-| Layer | Code | Responsibility |
+| 层 | 代码 | 职责 |
 |------|------|----------------|
-| **Presentation** | `apps/studio-web/src/main.ts` (~4,250 LOC) | Phaser isometric office, DOM HUD/drawer, WebSocket client, panel logic |
-| **Server core** | `apps/studio-server/src/index.ts` (~3,630 LOC) | HTTP routes, queue, hire, policy, charter, finance, proxy, WebSocket broadcast |
-| **Asset pipeline** | `apps/studio-server/src/asset-pipeline.ts` (~280 LOC) | Image gen, sprite-sheet pack, video transcode (sharp + ffmpeg) |
-| **Shared types** | `packages/shared/src/studio-events.ts` (~240 LOC) | 25 StudioEvent types, StudioAgentState, reduceState reducer |
-| **Change control** | `openspec/` | 9 capability specs + 1 archived change proposal |
-| **Agent manifest** | `.claude/agents/*.md` (30 files) | Frontmatter + body declaring each agent's role, tools, scope |
-| **Skills library** | `.claude/skills/*/SKILL.md` (44 skills) | Reusable procedures (setup-engine, brainstorm, gate-check, etc.) |
-| **Rules** | `.claude/rules/*.md` (7 rules) | Path-scoped style/architecture rules (engine-code, design-docs, etc.) |
-| **Hooks** | `.claude/hooks/*.sh` (6 hooks) | SessionStart / PreCompact / session-stop / pre-commit / pre-push gates |
+| **表现层** | `apps/studio-web/src/main.ts`（约 4,250 LOC） | Phaser 等距办公室、DOM HUD / 抽屉、WebSocket 客户端、面板逻辑 |
+| **服务端核心** | `apps/studio-server/src/index.ts`（约 3,630 LOC） | HTTP 路由、队列、雇佣、策略、章程、财务、代理、WebSocket 广播 |
+| **资源管线** | `apps/studio-server/src/asset-pipeline.ts`（约 280 LOC） | 图像生成、雪碧图打包、视频转码（sharp + ffmpeg） |
+| **共享类型** | `packages/shared/src/studio-events.ts`（约 240 LOC） | 25 种 StudioEvent 类型、StudioAgentState、reduceState reducer |
+| **变更控制** | `openspec/` | 9 份能力规范 + 1 份已归档的变更提案 |
+| **Agent 清单** | `.claude/agents/*.md`（30 份文件） | frontmatter + 正文，声明每个 Agent 的角色、工具、范围 |
+| **Skill 库** | `.claude/skills/*/SKILL.md`（44 个 skill） | 可复用的流程（setup-engine、brainstorm、gate-check 等） |
+| **规则** | `.claude/rules/*.md`（7 条规则） | 路径作用域内的风格 / 架构规则（engine-code、design-docs 等） |
+| **钩子** | `.claude/hooks/*.sh`（6 个钩子） | SessionStart / PreCompact / session-stop / pre-commit / pre-push 门禁 |
 
-## Request flow example: boss starts a meeting
+## 请求流示例：老板开启一次会议
 
-1. **UI** opens meeting drawer → `POST /api/meeting/start` with `{ projectId, topic }`
-2. **Server** constructs a project-specific meeting job → enqueues to producer / TD / CD with `source=meeting_kickoff`
-3. **Scheduler** runs the job in `ComputeSlots` (default 1, configurable) → calls LLM via `/v1/chat/completions`
-4. **Proxy** streams SSE → emits `llm.chunk` events for each delta
-5. **WebSocket** fans out events to all UI clients
-6. **UI** reduces state → redraws office → secretary HUD summarises
-7. **UI** auto-saves complete HTML output to `production/preview/<projectId>/index.html`
+1. **UI** 打开会议抽屉 → 以 `{ projectId, topic }` 调用 `POST /api/meeting/start`
+2. **服务端** 构造项目专属的会议任务 → 以 `source=meeting_kickoff` 入队给 Producer / TD / CD
+3. **调度器** 在 `ComputeSlots`（默认 1，可配置）中执行该任务 → 通过 `/v1/chat/completions` 调用大模型
+4. **代理** 流式回传 SSE → 为每个 delta 发出 `llm.chunk` 事件
+5. **WebSocket** 将事件扇出给所有 UI 客户端
+6. **UI** 归并状态 → 重绘办公室 → secretary HUD 进行总结
+7. **UI** 自动将完整 HTML 输出保存到 `production/preview/<projectId>/index.html`
 
-## Request flow example: agent writes HTML preview
+## 请求流示例：Agent 写出 HTML 预览
 
 ```mermaid
 sequenceDiagram
     participant Agent as LLM Agent
-    participant Proxy as /v1/* Proxy
-    participant Bus as WebSocket Bus
+    participant Proxy as /v1/* 代理
+    participant Bus as WebSocket 总线
     participant UI as Studio Web
     participant FS as production/preview/
 
     Agent->>Proxy: POST /v1/chat/completions (stream=true)
-    Proxy-->>Agent: SSE chunks
+    Proxy-->>Agent: SSE 分片
     Proxy->>Bus: emit llm.chunk (text)
-    Bus-->>UI: broadcast
-    UI->>UI: reduceState → bubble text
-    Note over UI: Detect full <html>...</html> in agent output
+    Bus-->>UI: 广播
+    UI->>UI: reduceState → 气泡展示文本
+    Note over UI: 在 Agent 输出中检测到完整 <html>...</html>
     UI->>Proxy: POST /api/preview/save
-    Proxy->>FS: write index.html
-    FS-->>UI: preview URL
+    Proxy->>FS: 写入 index.html
+    FS-->>UI: 预览 URL
 ```
 
-## Module dependency graph
+## 模块依赖图
 
 ```mermaid
 graph LR
@@ -100,58 +100,58 @@ graph LR
   server[studio-server] --> shared
   server --> asset[asset-pipeline]
   web -.HTTP/WS.-> server
-  server -.OpenAI compat.-> LLM[(Local / Cloud LLM)]
+  server -.OpenAI 兼容.-> LLM[(本地 / 云端大模型)]
   web --> phaser[Phaser 3.90]
   server --> ws[ws 8.x]
   server --> chokidar[chokidar 4]
   asset --> sharp[sharp 0.34]
 ```
 
-## Key abstractions
+## 核心抽象
 
-- **StudioEventEnvelope** — `{ v, ts, type, sessionId, correlationId, agentId?, payload }` is the single type every event uses. 25 typed variants on top of it.
-- **Job** — `{ id, agentId, task, priority, createdAt, providerId, projectId, workgroupId, status, source?, producerChainId? }`
-- **StudioPolicy** — three tiers: `producer`, `technicalDirector`, `creativeDirector`; each can be `rules` or `llm` mode.
-- **Hire roster** — `Set<agentId>`; default loads all 30 agents on first run.
-- **Charter** — `{ goal, milestones[], nodes[] }` per project, with `version + archivedAt` snapshot.
-- **Provider** — `{ id, label, kind: local|lan|cloud, baseUrl, model, capabilities, pricing }`.
+- **StudioEventEnvelope** —— `{ v, ts, type, sessionId, correlationId, agentId?, payload }` 是所有事件共用的单一类型，其上派生 25 种带类型的变体。
+- **Job** —— `{ id, agentId, task, priority, createdAt, providerId, projectId, workgroupId, status, source?, producerChainId? }`
+- **StudioPolicy** —— 三层：`producer`、`technicalDirector`、`creativeDirector`；每层可以是 `rules` 或 `llm` 模式。
+- **Hire roster** —— `Set<agentId>`；首次运行时默认载入全部 30 个 Agent。
+- **Charter** —— 每个项目 `{ goal, milestones[], nodes[] }`，带有 `version + archivedAt` 快照。
+- **Provider** —— `{ id, label, kind: local|lan|cloud, baseUrl, model, capabilities, pricing }`。
 
-## Workspace layout (annotated)
+## 工作区布局（带注释）
 
 ```
 AiGameAgent/
 ├── apps/
-│   ├── studio-server/        # Node.js HTTP+WS, port 8787
-│   │   ├── src/index.ts      # main server (3,630 LOC)
+│   ├── studio-server/        # Node.js HTTP + WS，端口 8787
+│   │   ├── src/index.ts      # 主服务端（3,630 LOC）
 │   │   ├── src/asset-pipeline.ts
 │   │   └── tsconfig.json
-│   └── studio-web/           # Phaser + Vite, dev port 5173
-│       ├── src/main.ts       # 4,250 LOC: office + DOM HUD
+│   └── studio-web/           # Phaser + Vite，dev 端口 5173
+│       ├── src/main.ts       # 4,250 LOC：办公室 + DOM HUD
 │       ├── src/style.css
 │       ├── index.html
 │       └── vite.config.ts
 ├── packages/
 │   └── shared/
-│       └── src/studio-events.ts  # 25 event types + reducer
+│       └── src/studio-events.ts  # 25 种事件类型 + reducer
 ├── .claude/
-│   ├── agents/               # 30 role manifests
-│   ├── skills/               # 44 SKILL.md procedures
-│   ├── rules/                # 7 path-scoped rules
-│   ├── hooks/                # 6 lifecycle scripts
-│   └── docs/                 # 9 coordination / setup docs
+│   ├── agents/               # 30 份角色清单
+│   ├── skills/               # 44 份 SKILL.md 流程
+│   ├── rules/                # 7 条路径作用域规则
+│   ├── hooks/                # 6 个生命周期脚本
+│   └── docs/                 # 9 份协作 / 搭建文档
 ├── openspec/
 │   ├── config.yaml
-│   ├── specs/                # 9 capability specs
-│   └── changes/              # 1 archived change
-├── docs/                     # collaboration + e2e checklist
-├── production/               # runtime state (gitignored)
+│   ├── specs/                # 9 份能力规范
+│   └── changes/              # 1 份已归档变更
+├── docs/                     # 协作 + 端到端清单
+├── production/               # 运行时状态（已 gitignore）
 ├── scripts/                  # studio-e2e-smoke.mjs
 ├── package.json              # npm workspaces
 └── tsconfig.base.json
 ```
 
-## Next
+## 接下来
 
-- See [Tech Stack](/tech-stack) for exact versions and per-module responsibilities.
-- Want to read the server code? Start at [Studio Server](/docs/01-studio-server).
-- Want to read the client code? Start at [Studio Web](/docs/02-studio-web).
+- 查看 [技术栈](/tech-stack) 了解具体版本与各模块职责。
+- 想读服务端代码？从 [Studio Server](/docs/01-studio-server) 开始。
+- 想读客户端代码？从 [Studio Web](/docs/02-studio-web) 开始。

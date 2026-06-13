@@ -1,10 +1,10 @@
-# 07 · Monitor & HTML Preview
+# 07 · 监控与 H5 预览
 
-The "显示器" (monitor) is the boss's window into the current project's deliverable. It's an iframe that points at a server-served HTML file, with a sidecar for history, restore, and a textarea for manual paste.
+监控面板是老板观察当前项目交付物的窗口。它是一个 iframe，指向服务器提供的 HTML 文件，旁边还挂着一个侧栏用于历史、回滚，以及一个支持手动粘贴的文本框。
 
-**Source:** `apps/studio-web/src/main.ts` (`setupMonitorUI`) · `apps/studio-server/src/index.ts` (preview routes)
+**Source:** `apps/studio-web/src/main.ts`（`setupMonitorUI`）· `apps/studio-server/src/index.ts`（预览路由）
 
-## Two flows into the preview
+## 两条进入预览的路径
 
 ```mermaid
 flowchart LR
@@ -21,12 +21,12 @@ flowchart LR
     AutoSave -->|POST /api/preview/save| Server
   end
 
-  Server -->|write file| FS[(production/preview/&lt;pid&gt;/index.html)]
-  Server -->|archive copy| History[(production/preview/&lt;pid&gt;/history/&lt;timestamp&gt;.html)]
+  Server -->|write file| FS[(production/preview/<pid>/index.html)]
+  Server -->|archive copy| History[(production/preview/<pid>/history/<timestamp>.html)]
   Server -->|serve| Iframe[preview iframe]
 ```
 
-## File layout
+## 文件布局
 
 ```
 production/preview/
@@ -44,11 +44,11 @@ production/preview/
                 └── ...
 ```
 
-`projectId` is sanitised to `[a-zA-Z0-9_-]` before any path join — directory traversal is structurally impossible.
+`projectId` 在参与任何路径拼接之前都会被清洗为 `[a-zA-Z0-9_-]`，从根本上杜绝目录穿越。
 
-## HTML normalisation (the "boss pasted a markdown fence" problem)
+## HTML 归一化（「老板贴了一段 markdown 围栏」的问题）
 
-LLMs (and humans pasting from chat) often wrap HTML in markdown fences or pre-amble it with prose. The `normalizePreviewHtmlInput()` function on the client tries three forms:
+LLM（以及从聊天里粘贴的人类）经常把 HTML 裹在 markdown 围栏里，或者在前面加一段散文。客户端的 `normalizePreviewHtmlInput()` 函数尝试三种形态：
 
 ```ts
 function normalizePreviewHtmlInput(raw: string): { html: string; hint?: string } {
@@ -67,28 +67,28 @@ function normalizePreviewHtmlInput(raw: string): { html: string; hint?: string }
 }
 ```
 
-If a hint was applied, the secretary HUD logs it. This is the difference between "save worked" and "boss pastes a 5-page chat reply and wonders why the preview is blank".
+如果某条提示被触发，秘书 HUD 会把它记下来。这正是「保存成功」与「老板贴了一段 5 页的聊天回复，纳闷预览为什么是空白」之间的差别。
 
-## Server routes
+## 服务端路由
 
-| Method | Path | Purpose |
+| Method | Path | 用途 |
 |--------|------|---------|
-| `GET` | `/preview?projectId=X[&v=file.html]` | Serve `index.html` (default) or a specific history file |
-| `POST` | `/api/preview/save` | Save HTML for a project (with auto-history) |
-| `GET` | `/api/preview/history?projectId=X` | List history files (newest first) |
-| `POST` | `/api/preview/restore` | Copy a history file back to `index.html` |
+| `GET` | `/preview?projectId=X[&v=file.html]` | 提供 `index.html`（默认）或某个具体的历史文件 |
+| `POST` | `/api/preview/save` | 为某项目保存 HTML（自动入历史） |
+| `GET` | `/api/preview/history?projectId=X` | 列出历史文件（最新在前） |
+| `POST` | `/api/preview/restore` | 把某个历史文件拷回 `index.html` |
 
-The save endpoint enforces a 20-character minimum:
+保存端点强制 20 个字符的最小长度：
 
 ```ts
 if (html.length < 20) return { ok: false, error: "html_too_short" };
 ```
 
-This catches empty / whitespace-only pastes.
+这能拦截空粘贴 / 仅空白的粘贴。
 
-## Auto-save detection (the magic)
+## 自动保存检测（「魔法」）
 
-After every `llm.message_done`, the client checks: does the agent's `summary` (the completed message) contain a full HTML document?
+每次 `llm.message_done` 之后，客户端会检查：Agent 的 `summary`（完整消息）里是否包含一份完整的 HTML 文档？
 
 ```ts
 function extractHtmlDocFromText(raw: string): string | null {
@@ -113,22 +113,22 @@ if (htmlDoc) {
 }
 ```
 
-The 200-character minimum is a pragmatic floor: a `200` `<!doctype html></html>` is the smallest meaningful page.
+200 字符的最小长度是一个务实下限：一个 `<!doctype html></html>` 加 200 字符是「最小有意义的页面」。
 
-## Project switching in the monitor
+## 监控面板中的项目切换
 
-The monitor has its own `monitorProject` select. Switching it:
+监控面板自带一个 `monitorProject` 选择器。切换时：
 
-1. Calls `POST /api/projects/select` to mark it current
-2. Updates the iframe `src` to `/preview?projectId=X`
-3. Reloads the history list
-4. Sets `window.__STUDIO_CURRENT_PROJECT__` so other panels pick it up
+1. 调用 `POST /api/projects/select` 将其标记为当前项目
+2. 更新 iframe 的 `src` 为 `/preview?projectId=X`
+3. 重新加载历史列表
+4. 设置 `window.__STUDIO_CURRENT_PROJECT__`，供其他面板拾取
 
-The auto-save event listener (`studio-preview-saved`) also re-syncs the project select if a save arrived for a project the boss wasn't viewing.
+自动保存事件监听器（`studio-preview-saved`）也会在「老板当前未查看的项目收到了保存事件」时，反向同步项目选择器。
 
-## History & restore
+## 历史与回滚
 
-Each save **also** writes a timestamped copy:
+每次保存**同时**会写一份带时间戳的副本：
 
 ```ts
 const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -136,13 +136,13 @@ const histFile = join(previewDir, pid, "history", `${ts}.html`);
 await writeFile(histFile, html, "utf8");
 ```
 
-The history list shows newest-first. Clicking a filename loads it in the iframe (without overwriting `index.html`). Clicking "恢复为当前" copies the file back to `index.html` — useful when the latest agent output regressed.
+历史列表按时间倒序展示。点击文件名会在 iframe 中加载该版本（不会覆盖 `index.html`）。点击「回滚为当前版本」则把该文件拷回 `index.html`——当 Agent 最新输出出现回退时很有用。
 
-## Failure surfacing
+## 失败展示
 
-If `studio-failures-refresh` fires (after a `job.failed` or `job.finished` with `ok: false`), the monitor re-fetches `/api/studio/failures?limit=25` and shows the last 25 failures in a side panel — each with a "复制 ID" button to grab the `correlationId` for debugging.
+如果 `studio-failures-refresh` 触发（在 `job.failed` 或 `ok: false` 的 `job.finished` 之后），监控面板会重新拉取 `/api/studio/failures?limit=25`，在侧栏展示最近 25 条失败——每条都带「复制 ID」按钮，便于拷贝 `correlationId` 调试。
 
-The failure list shape:
+失败列表的形态：
 
 ```ts
 {
@@ -154,16 +154,16 @@ The failure list shape:
 }
 ```
 
-## Why an iframe and not innerHTML?
+## 为什么要 iframe，而不是 innerHTML？
 
-1. **CSP safety** — the saved HTML could include `<script>`, `eval`, `fetch` to a third-party origin. An iframe is naturally sandboxed (same-origin) and CSP can be added per response.
-2. **Reset semantics** — to "reload" a preview, you just bump `iframe.src` (or change the `&v=` query string). With `innerHTML` you'd have to strip the previous DOM and worry about leaked event listeners.
-3. **No leak of agent context into the parent app** — agent output stays in the iframe's world; the host page is unaffected by an agent's `setTimeout(alert, 1000)`.
+1. **CSP 安全** —— 保存的 HTML 可能包含 `<script>`、`eval`、跨域 `fetch`。iframe 天然是（同源）沙箱，且可以按响应单独加 CSP
+2. **重置语义清晰** —— 想「重载」预览，只需要改 `iframe.src`（或 `&v=` 查询串）。用 `innerHTML` 的话，必须先拆掉旧 DOM，还要担心事件监听泄漏
+3. **Agent 上下文不会泄漏到宿主应用** —— Agent 输出待在 iframe 的世界里；Agent 的 `setTimeout(alert, 1000)` 不会影响宿主页
 
-The trade-off: same-origin iframes inherit the parent's cookies / localStorage. The mitigation is to **not** load the preview with credentials and to keep the served HTML trustworthy (it's the boss's own output, not a third-party's).
+代价：同源 iframe 会继承宿主页的 cookie / localStorage。缓解方式是**不带凭据加载预览**，并保持所提供 HTML 的可信（这是老板自己的输出，而非第三方）。
 
-## Next
+## 接下来
 
-- [Asset Pipeline](/docs/08-asset-pipeline) — how images / sprite sheets / videos get stored alongside the preview
-- [Finance & Model Routing](/docs/09-finance-and-routing) — what the auto-save cost looks like
-- [Open API Reference](/docs/13-api-reference) — the full preview API
+- [资源管道](/docs/08-asset-pipeline) —— 图像 / 精灵表 / 视频是如何与预览一起存储的
+- [财务与模型路由](/docs/09-finance-and-routing) —— 自动保存的成本长什么样
+- [完整 API 参考](/docs/13-api-reference) —— 预览 API 全貌

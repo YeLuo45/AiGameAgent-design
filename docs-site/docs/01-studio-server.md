@@ -1,105 +1,105 @@
 # 01 · Studio Server
 
-The Studio server is a single Node.js process that speaks HTTP + WebSocket on port 8787, hosts the OpenAI-compatible proxy, schedules jobs, tracks finance, persists charter/policy/routing, and broadcasts StudioEvents to every connected UI.
+Studio Server 是一个单一的 Node.js 进程，在 8787 端口同时提供 HTTP 与 WebSocket，托管 OpenAI 兼容代理，调度任务，跟踪财务，持久化章程 / 策略 / 路由，并向所有连上的 UI 广播 StudioEvents。
 
-**Source:** `apps/studio-server/src/index.ts` (~3,630 LOC), `src/asset-pipeline.ts` (~280 LOC)
+**源码：** `apps/studio-server/src/index.ts`（约 3,630 LOC）、`src/asset-pipeline.ts`（约 280 LOC）
 
-## What it does
+## 它做什么
 
-| Concern | Where | Why |
+| 关注点 | 位置 | 原因 |
 |---------|-------|-----|
-| HTTP routing | `createServer` + `if (url.pathname === ...)` chain | Hand-rolled; no Express/Fastify — keeps the install footprint tiny |
-| OpenAI proxy | `/v1/*` catch-all at the end of the chain | Transparent to any OpenAI-compatible client (Cursor, Cline, Continue, etc.) |
-| WebSocket | `ws` 8.x, mounted on `/ws` upgrade | One broadcast → many UIs |
-| File watching | `chokidar` on repo root (ignores `node_modules`, `.git`, `dist`, log path) | Produces `fs.change` events for the office |
-| Job queue | in-memory `Array<Job>` + `Map<slotId, Job>` for running | Default serial; `ComputeSlots` controls parallelism |
-| Hire roster | `Set<agentId>` persisted to `production/studio-hired.json` | Optional gate — only hired agents are enqueued |
-| Policy | `production/policy.json` — 3 tiers (producer / TD / CD) | "rules" or "llm" mode per tier |
-| Charter | `production/charter/state.json` — per-project draft + archive history | Drift detection on save |
-| Model routing | `production/model-routing.json` — `tier: save | balance | quality` | Decides cloud vs local for meeting vs execution |
-| Finance | reads `studio_events.jsonl`, rolls up tokens / requests / cost / failures | Per-provider cost attribution |
-| Preview storage | `production/preview/<projectId>/index.html` + `history/*.html` | Auto-saved from agent output |
-| Asset pipeline | `studioGenerateImages`, `studioPackSpritesheet`, `studioTranscodeVideo` | OpenAI images API + sharp + ffmpeg |
+| HTTP 路由 | `createServer` + `if (url.pathname === ...)` 链式判断 | 手写路由；不依赖 Express / Fastify——把安装体积压到最小 |
+| OpenAI 代理 | 链路末端的 `/v1/*` catch-all | 对任何 OpenAI 兼容客户端（Cursor、Cline、Continue 等）透明 |
+| WebSocket | `ws` 8.x，挂载在 `/ws` upgrade 上 | 一次广播，多个 UI |
+| 文件监听 | `chokidar` 监听仓库根目录（忽略 `node_modules`、`.git`、`dist`、日志路径） | 产出 `fs.change` 事件供办公室使用 |
+| 任务队列 | 内存中的 `Array<Job>` + `Map<slotId, Job>` 表示运行中 | 默认串行；`ComputeSlots` 控制并发度 |
+| 雇佣名册 | `Set<agentId>`，持久化到 `production/studio-hired.json` | 可选门禁——只有被雇佣的 Agent 才会入队 |
+| 策略 | `production/policy.json` —— 3 层（Producer / TD / CD） | 每层可为 "rules" 或 "llm" 模式 |
+| 章程 | `production/charter/state.json` —— 每项目草稿 + 归档历史 | 保存时检测漂移 |
+| 模型路由 | `production/model-routing.json` —— `tier: save | balance | quality` | 决定会议与执行环节走云端还是本地 |
+| 财务 | 读取 `studio_events.jsonl`，汇总 token / 请求 / 成本 / 失败 | 按提供方归属成本 |
+| 预览存储 | `production/preview/<projectId>/index.html` + `history/*.html` | 从 Agent 输出自动保存 |
+| 资源管线 | `studioGenerateImages`、`studioPackSpritesheet`、`studioTranscodeVideo` | OpenAI images API + sharp + ffmpeg |
 
-## Boot sequence
+## 启动顺序
 
 ```ts
 export async function main() {
-  const env = getEnv();              // port 8787, host 127.0.0.1, repo root
-  // ... open WebSocketServer (noServer: true)
-  // ... load policy, model routing, hire roster
-  // ... start chokidar watcher
-  // ... start HTTP server
+  const env = getEnv();              // 端口 8787，host 127.0.0.1，仓库根
+  // ... 打开 WebSocketServer（noServer: true）
+  // ... 加载策略、模型路由、雇佣名册
+  // ... 启动 chokidar 监听器
+  // ... 启动 HTTP 服务
   server.listen(env.port, env.host);
   console.log(`[studio-server] listening on http://${env.host}:${env.port}`);
 }
 ```
 
-The function returns the running server; it never exits unless killed.
+该函数返回正在运行的 server；除非被 kill，否则永不会退出。
 
-## HTTP surface (top hits)
+## HTTP 接口（精选）
 
-> Full reference: [Open API Reference](/docs/13-api-reference). The non-exhaustive highlights:
+> 完整参考：[开放 API 参考](/docs/13-api-reference)。以下为非穷尽式精选：
 
-### Resource endpoints
+### 资源端点
 
-| Method | Path | Purpose |
+| 方法 | 路径 | 用途 |
 |--------|------|---------|
-| GET | `/api/agents` | List all agents (parses `.claude/agents/*.md` frontmatter) |
-| GET | `/api/projects` | List projects + `currentProjectId` |
-| POST | `/api/projects` | Create new project (default title: "默认项目") |
-| POST | `/api/projects/select` | Switch current project |
-| GET | `/api/hire` | Read hire roster |
-| POST | `/api/hire` | Toggle hire for an agent |
-| POST | `/api/hire/sync_all` | Restore all agents (reset) |
+| GET | `/api/agents` | 列出所有 Agent（解析 `.claude/agents/*.md` frontmatter） |
+| GET | `/api/projects` | 列出项目 + `currentProjectId` |
+| POST | `/api/projects` | 新建项目（默认标题："Default Project"） |
+| POST | `/api/projects/select` | 切换当前项目 |
+| GET | `/api/hire` | 读取雇佣名册 |
+| POST | `/api/hire` | 切换某 Agent 的雇佣状态 |
+| POST | `/api/hire/sync_all` | 恢复全部 Agent（重置） |
 
-### Workflow endpoints
+### 工作流端点
 
-| Method | Path | Purpose |
+| 方法 | 路径 | 用途 |
 |--------|------|---------|
-| POST | `/api/queue/enqueue` | Add a job; `autoSplit: true` → split on newlines |
-| GET | `/api/queue` | Read queue + running |
-| POST | `/api/dept/workorder/action` | Approve / reject / redo on a department |
-| POST | `/api/meeting/start` | Kick off a meeting (producer/TD/CD round) |
-| GET | `/api/charter` | Read draft + archived charter for project |
-| POST | `/api/charter` | Save draft / archive version |
+| POST | `/api/queue/enqueue` | 加入任务；`autoSplit: true` → 按换行拆分 |
+| GET | `/api/queue` | 读取队列与运行中任务 |
+| POST | `/api/dept/workorder/action` | 对某部门执行 Approve / Reject / Redo |
+| POST | `/api/meeting/start` | 发起一次会议（Producer / TD / CD 轮转） |
+| GET | `/api/charter` | 读取某项目的草稿与已归档章程 |
+| POST | `/api/charter` | 保存草稿 / 归档版本 |
 
-### LLM-facing endpoints
+### 对接大模型的端点
 
-| Method | Path | Purpose |
+| 方法 | 路径 | 用途 |
 |--------|------|---------|
-| GET POST | `/v1/*` | Transparent proxy to `STUDIO_UPSTREAM_BASE_URL` |
-| POST | `/api/bench` | Measure first-chunk latency on upstream |
-| POST | `/api/bench/sweep` | Concurrency sweep `[1,2,3]` |
-| GET | `/api/advice` | Suggested provider + model tier for current host |
-| GET | `/api/system/profile` | Detect host GPU / RAM (Windows uses CIM) |
+| GET POST | `/v1/*` | 透明代理到 `STUDIO_UPSTREAM_BASE_URL` |
+| POST | `/api/bench` | 测量 upstream 的首分片延迟 |
+| POST | `/api/bench/sweep` | 并发度扫描 `[1,2,3]` |
+| GET | `/api/advice` | 当前宿主推荐提供方与模型档位 |
+| GET | `/api/system/profile` | 检测宿主 GPU / 内存（Windows 使用 CIM） |
 
-### Operational endpoints
+### 运维端点
 
-| Method | Path | Purpose |
+| 方法 | 路径 | 用途 |
 |--------|------|---------|
-| GET | `/api/policy` POST | Read or write StudioPolicy |
-| GET | `/api/model-routing` POST | Read or write tier |
-| GET | `/api/finance/summary?range=today` | Token/cost/fail rollup |
-| POST | `/api/finance/reset` | Mark a reset (does not truncate log) |
-| POST | `/api/emit` | Allow UI to push arbitrary `StudioEvent` (e.g. user actions) |
-| GET | `/preview?projectId=X&v=...` | Serve preview HTML (iframe target) |
-| GET POST | `/api/preview/save`, `/api/preview/history`, `/api/preview/restore` | Manage preview history |
+| GET POST | `/api/policy` | 读取或写入 StudioPolicy |
+| GET POST | `/api/model-routing` | 读取或写入档位 |
+| GET | `/api/finance/summary?range=today` | token / 成本 / 失败汇总 |
+| POST | `/api/finance/reset` | 标记一次重置（不会截断日志） |
+| POST | `/api/emit` | 允许 UI 推送任意 `StudioEvent`（例如用户操作） |
+| GET | `/preview?projectId=X&v=...` | 提供预览 HTML（iframe 目标） |
+| GET POST | `/api/preview/save`、`/api/preview/history`、`/api/preview/restore` | 管理预览历史 |
 
-## The OpenAI proxy (the load-bearing piece)
+## OpenAI 代理（承重墙）
 
-The `/v1/*` catch-all is what makes AiGameAgent **work with any OpenAI client** — Cursor, Continue, Cline, Aider, even a raw `curl`. The boss can point Cursor at `http://127.0.0.1:8787/v1` and the studio will:
+`/v1/*` catch-all 让 AiGameAgent **对任何 OpenAI 客户端都能用**——Cursor、Continue、Cline、Aider，乃至裸 `curl`。老板可以把 Cursor 指到 `http://127.0.0.1:8787/v1`，然后 Studio 会：
 
-1. Forward the request (minus `Host`, `x-studio-*` headers) to `STUDIO_UPSTREAM_BASE_URL`
-2. Stream SSE chunks back, parsing `data:` lines
-3. Emit `llm.chunk` events with the text delta
-4. Detect `tool_calls` and emit `tool.start` / `tool.end` per tool
-5. Emit `llm.message_done` on `[DONE]`
-6. Add an `agent.assign` event with the task (from `x-studio-task` header)
+1. 将请求（去掉 `Host`、`x-studio-*` header）转发到 `STUDIO_UPSTREAM_BASE_URL`
+2. 流式回传 SSE 分片，解析 `data:` 行
+3. 为文本 delta 发出 `llm.chunk` 事件
+4. 检测 `tool_calls` 并按工具发出 `tool.start` / `tool.end`
+5. 在 `[DONE]` 时发出 `llm.message_done`
+6. 附带一个带任务（取自 `x-studio-task` header）的 `agent.assign` 事件
 
-Redaction is deliberate — `Authorization` is replaced with `Bearer ***` in any debug log.
+脱敏是刻意的——`Authorization` 在任何调试日志里都被替换成 `Bearer ***`。
 
-## Job scheduler (the queue)
+## 任务调度器（队列）
 
 ```ts
 type Job = {
@@ -118,30 +118,30 @@ type Job = {
 };
 ```
 
-**Dispatch rule:** priority desc, FIFO within tier. The scheduler runs `pumpQueue()` after every enqueue.
+**派发规则：** 优先级降序，同档位内 FIFO。调度器在每次入队后都会跑一次 `pumpQueue()`。
 
-**Project limit:** graded by host capability (`S` → 3 parallel projects, `A` → 2, `B/C` → 1). Enqueueing a 4th project for an `S`-grade host will respond with `error: project_limit_reached`.
+**项目上限：** 按宿主能力分级（`S` → 3 个并行项目，`A` → 2，`B/C` → 1）。给 `S` 级宿主入队第 4 个项目时会以 `error: project_limit_reached` 拒绝。
 
-**Auto-outsource:** if `firstChunkMs > 1800` on local and a `cloud` provider is configured, the TD policy can promote the job to cloud.
+**自动外包：** 如果本地 `firstChunkMs > 1800` 且配置了 `cloud` 提供方，TD 策略可以把任务提升到云端。
 
-## Hire roster
+## 雇佣名册
 
 ```ts
-const hired = new Set<string>();            // in-memory
-const agentProvider = new Map<string, string>();  // override provider per agent
+const hired = new Set<string>();            // 内存中
+const agentProvider = new Map<string, string>();  // 按 Agent 覆盖提供方
 
 async function loadHiredInitial() {
   if (existsSync(studioHiredPath)) {
-    // load from production/studio-hired.json
+    // 从 production/studio-hired.json 加载
   } else {
-    // default: hire ALL agents from .claude/agents/
+    // 默认：雇佣 .claude/agents/ 中的全部 Agent
   }
 }
 ```
 
-An enqueue call rejects with `agent_not_hired` if `hired.size > 0` and the agent is not in the roster. (Empty `hired` = no gate.)
+如果 `hired.size > 0` 且目标 Agent 不在名册中，入队调用会以 `agent_not_hired` 拒绝。（空 `hired` = 不设门禁。）
 
-## Policy
+## 策略
 
 ```ts
 type StudioPolicy = {
@@ -152,9 +152,9 @@ type StudioPolicy = {
 };
 ```
 
-**Default policy** is `rules` mode for all three tiers, `autoSplit: true`, `maxSubtasks: 5`, `gateOnNoPreview: false`, `requireAcceptanceCriteria: true`. LLM mode (e.g. `technicalDirector.mode: "llm"`) is reserved for future LLM-driven decision making.
+**默认策略** 是三层都使用 `rules` 模式，`autoSplit: true`、`maxSubtasks: 5`、`gateOnNoPreview: false`、`requireAcceptanceCriteria: true`。LLM 模式（例如 `technicalDirector.mode: "llm"`）保留给未来 LLM 驱动的决策。
 
-## Charter & change control
+## 章程与变更控制
 
 ```ts
 type CharterBody = { goal: string; milestones: string[]; nodes: string[] };
@@ -163,61 +163,61 @@ type PerProjectCharter = { draft: CharterBody; archived: CharterArchived | null;
 type PendingChange = { kinds: string[]; count: number; updatedAt: string; lastNotifyTs?: string };
 ```
 
-When the draft differs from the latest archive, the server computes `driftKinds()` and surfaces them as `change.detected` events. The boss then "clears" pending changes in the meeting room.
+当草稿与最近一份归档不一致时，服务端会计算 `driftKinds()`，并以 `change.detected` 事件对外呈现。老板随后在会议室里"清除"待处理的变更。
 
-## FS watcher
+## FS 监听器
 
-`chokidar` watches the whole repo root, ignoring:
+`chokidar` 监听整个仓库根目录，忽略：
 
 - `**/node_modules/**`
 - `**/.git/**`
 - `**/dist/**`
-- the log path itself
+- 日志路径自身
 - `**/production/session-logs/**`
 - `**/production/session-state/**`
 
-Each event is wrapped in an `fs.change` envelope and broadcast. The office uses this to detect when an agent edits a file (and updates the corresponding agent's "tool" status).
+每个事件被包装成 `fs.change` 信封并广播。办公室借此检测 Agent 编辑了哪个文件（并更新对应 Agent 的"工具"状态）。
 
-## Asset pipeline (separate file)
+## 资源管线（独立文件）
 
-`asset-pipeline.ts` exports three async functions:
+`asset-pipeline.ts` 导出三个异步函数：
 
 ```ts
 studioGenerateImages({ repoRoot, projectId, prompt, n, size, imageBaseUrl, apiKey, model })
-  → writes production/preview/<pid>/assets/gen/<runId>/{0..n-1}.png
+  → 写入 production/preview/<pid>/assets/gen/<runId>/{0..n-1}.png
 
 studioPackSpritesheet({ repoRoot, projectId, sourceDir, outputName, maxWidth })
-  → uses sharp to compose, writes <name>.png + <name>.json (frame metadata)
+  → 使用 sharp 合成，写入 <name>.png + <name>.json（帧元数据）
 
 studioTranscodeVideo({ repoRoot, projectId, input, output, codec })
-  → spawns ffmpeg (or FFMPEG_PATH), writes result file
+  → spawn ffmpeg（或 FFMPEG_PATH），写入结果文件
 ```
 
-The image generator hits any OpenAI-compatible `images/generations` endpoint. `n` is clamped 1-10; `size` defaults to `1024x1024`; `model` defaults to `dall-e-2`.
+图像生成器命中任何 OpenAI 兼容的 `images/generations` 端点。`n` 被夹在 1-10；`size` 默认为 `1024x1024`；`model` 默认为 `dall-e-2`。
 
-## Security & boundaries
+## 安全与边界
 
-- **Loopback-only by default**: `STUDIO_HOST=127.0.0.1`. LAN exposure requires an explicit env var.
-- **Path traversal guard**: all project IDs are sanitised to `[a-zA-Z0-9_-]` before any path join.
-- **CORS**: `applyCorsHeaders` allows `*` for origin, but the production deployment is expected to live behind a reverse proxy.
-- **Redaction**: `Authorization` headers are replaced with `Bearer ***` in debug output.
-- **No eval / dynamic require**: all modules are statically imported; no user input is ever passed to `require()` or `eval()`.
+- **默认仅 loopback**：`STUDIO_HOST=127.0.0.1`。要暴露到局域网需要显式环境变量。
+- **路径遍历守卫**：所有项目 ID 在做任何路径拼接前都会被清洗到 `[a-zA-Z0-9_-]`。
+- **CORS**：`applyCorsHeaders` 对 origin 允许 `*`，但生产部署预期位于反向代理之后。
+- **脱敏**：`Authorization` header 在调试输出中被替换为 `Bearer ***`。
+- **无 eval / 动态 require**：所有模块都是静态导入；任何用户输入都不会传给 `require()` 或 `eval()`。
 
-## Failure modes the server handles
+## 服务端处理的失败模式
 
-| Failure | Behaviour |
+| 失败 | 行为 |
 |---------|-----------|
-| Upstream returns 5xx | `job.finished` with `ok: false`, `failureReason`, `upstreamStatus` |
-| SSE parse error | Forward raw chunk anyway; emit a generic chunk event |
-| LLM returns non-JSON | Try `parseMeetingTranscriptJson` → fall back to `parseMeetingTranscriptLoose` (regex on `秘书：...`) |
-| LLM returns JSON wrapped in ```fences``` | Strip the fences first |
-| LLM returns prose with embedded JSON | `sliceOutermostJsonObject` extracts the first `{...}` block |
-| Chokidar emits for a deleted file | Still emits `fs.change` with `kind: unlink` — UI ignores |
-| Charter state.json corrupt | Caught; in-memory state is used; file is not overwritten until next save |
-| Invalid provider in queue request | Reject with `error: unknown_provider` (400) |
+| 上游返回 5xx | `job.finished` 携带 `ok: false`、`failureReason`、`upstreamStatus` |
+| SSE 解析错误 | 仍然转发原始分片；发出一个通用的 chunk 事件 |
+| 大模型返回非 JSON | 尝试 `parseMeetingTranscriptJson` → 回退到 `parseMeetingTranscriptLoose`（基于 `Secretary:...` 的正则） |
+| 大模型返回被 ```fences``` 包裹的 JSON | 先剥掉外层 fences |
+| 大模型返回嵌入 JSON 的散文 | `sliceOutermostJsonObject` 提取第一个 `{...}` 块 |
+| Chokidar 对已删除文件触发 | 仍然以 `kind: unlink` 发出 `fs.change`——由 UI 忽略 |
+| Charter state.json 损坏 | 被捕获；使用内存中的状态；在下一次保存前不会覆盖文件 |
+| 队列请求中的提供方无效 | 以 `error: unknown_provider`（400）拒绝 |
 
-## Next
+## 接下来
 
-- [Studio Web (Isometric Office)](/docs/02-studio-web) — the front-end that consumes all of this
-- [Shared Events Bus](/docs/03-events-bus) — the 25 event types the server emits
-- [Open API Reference](/docs/13-api-reference) — full route table
+- [Studio Web（等距办公室）](/docs/02-studio-web)——消费以上所有内容的前端
+- [共享事件总线](/docs/03-events-bus)——服务端发出的 25 种事件类型
+- [开放 API 参考](/docs/13-api-reference)——完整路由表

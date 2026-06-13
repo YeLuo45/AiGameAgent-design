@@ -1,24 +1,24 @@
-# 06 · Meeting Room & Project Charter
+# 06 · 会议室与项目章程
 
-The "会议室" (meeting room) is the most distinctive UX in AiGameAgent. It's where the boss meets the leadership subset (producer / technical-director / creative-director), debates a topic, edits a charter, and archives a version. The charter becomes the spec that downstream work follows.
+会议室是 AiGameAgent 中最具特色的 UX。在这里，老板与领导层子集（producer / technical-director / creative-director）会面，就某个议题展开讨论，编辑章程，并归档某个版本。章程将成为下游工作所遵循的规范。
 
-**Source:** `apps/studio-web/src/main.ts` (`setupMeetingUI`) + `apps/studio-server/src/index.ts` (charter state, meeting API, leadership enqueue)
+**Source:** `apps/studio-web/src/main.ts`（`setupMeetingUI`）+ `apps/studio-server/src/index.ts`（章程状态、会议 API、领导层入队）
 
-## Why a meeting room?
+## 为什么要会议室？
 
-Most AI dev tools start with "type a prompt". AiGameAgent starts with **"what are we building?"** The meeting room is the *first* thing the boss uses, before any code is written.
+大多数 AI 开发工具都从「输入提示词」开始。AiGameAgent 则从**「我们要构建什么？」**开始。会议室是老板**在写任何代码之前**用的第一个东西。
 
-The leadership subset (3 agents) are the only ones that talk in a meeting. They each have a role:
+领导层子集（3 位 Agent）是会议中唯一发言的 Agent。它们各司其职：
 
-| Speaker | Asks | Looks for |
+| 发言人 | 提问 | 关注点 |
 |---------|------|-----------|
-| 制作人 (Producer) | "What is the *one* thing we are shipping? In one sentence." | Goal clarity, scope, milestones |
-| 技术总监 (Technical Director) | "What model, what compute, what's the risk?" | Provider choice, parallel work, latency |
-| 创意总监 (Creative Director) | "What's the player fantasy? What does 'done' look like?" | Acceptance criteria, preview gate |
+| Producer | 「我们到底要交付的**那一个**东西是什么？一句话讲清楚。」 | 目标清晰度、范围、里程碑 |
+| Technical Director | 「用什么模型、什么算力、风险是什么？」 | 提供方选择、并发工作、延迟 |
+| Creative Director | 「玩家的幻想是什么？『完成』长什么样？」 | 验收标准、预览把关 |
 
-The boss arbitrates: writes the charter, archives it, then the producer's chain kicks off the rest.
+老板居中裁断：撰写章程、归档，然后由 producer 链启动后续工作。
 
-## Meeting flow
+## 会议流程
 
 ```mermaid
 sequenceDiagram
@@ -28,7 +28,7 @@ sequenceDiagram
     participant LLM as LLM (OpenAI-compat)
     participant FS as production/charter/
 
-    Boss->>UI: type topic, click "开始会议"
+    Boss->>UI: type topic, click "Start meeting"
     UI->>API: POST /api/meeting/start { projectId, topic }
     API->>API: enqueue producer / TD / CD with source=meeting_kickoff
     loop for each leader
@@ -39,14 +39,14 @@ sequenceDiagram
     API-->>UI: meeting.decided event
     UI->>Boss: show transcript + charter form
     Boss->>UI: edit charter (goal/milestones/nodes)
-    Boss->>UI: click "归档" (archive)
+    Boss->>UI: click "Archive"
     UI->>API: POST /api/charter (archive)
     API->>FS: write state.json (new archived version)
     API-->>UI: charter.archived event
-    UI->>Boss: "已归档 v1"
+    UI->>Boss: "Archived v1"
 ```
 
-## Charter data model
+## 章程数据模型
 
 ```ts
 type CharterBody = { goal: string; milestones: string[]; nodes: string[] };
@@ -56,27 +56,27 @@ type CharterRootState = { projects: Record<string, PerProjectCharter>; pendingCh
 type PendingChange = { kinds: string[]; count: number; updatedAt: string; lastNotifyTs?: string };
 ```
 
-- **draft** is what the boss is currently editing
-- **archived** is the latest "frozen" version (or `null` if never archived)
-- **history** is a stack of all archived versions
-- **pendingChanges** records drift kinds for the UI
+- **draft**：老板当前正在编辑的内容
+- **archived**：最新的「冻结」版本（从未归档过则为 `null`）
+- **history**：所有归档版本的栈
+- **pendingChanges**：供 UI 用的漂移类型记录
 
-State is persisted to `production/charter/state.json` (gitignored).
+状态持久化到 `production/charter/state.json`（gitignored）。
 
-## REST surface for meeting & charter
+## 会议与章程的 REST 接口
 
-| Method | Path | Purpose |
+| Method | Path | 用途 |
 |--------|------|---------|
-| `POST` | `/api/meeting/start` | Kick off a leadership meeting (with optional `topic`) |
-| `GET` | `/api/meeting/llm_ping` | Test that the meeting provider is reachable |
-| `GET` | `/api/charter?projectId=X` | Read draft + archived + history for project X |
-| `POST` | `/api/charter` | Save draft (action: `save_draft`) or archive (action: `archive`) |
-| `GET` | `/api/charter/changes?projectId=X` | Read pending changes (drift kinds) |
-| `POST` | `/api/charter/changes/clear` | Clear pending changes for a project |
+| `POST` | `/api/meeting/start` | 启动一次领导层会议（可带 `topic`） |
+| `GET` | `/api/meeting/llm_ping` | 测试会议提供方是否可达 |
+| `GET` | `/api/charter?projectId=X` | 读取项目 X 的 draft + archived + history |
+| `POST` | `/api/charter` | 保存 draft（action: `save_draft`）或归档（action: `archive`） |
+| `GET` | `/api/charter/changes?projectId=X` | 读取待处理变更（漂移类型） |
+| `POST` | `/api/charter/changes/clear` | 清除项目的待处理变更 |
 
-## Parsing the leadership transcript
+## 解析领导层会议记录
 
-LLM outputs are noisy. The server has three parsers, tried in order:
+LLM 输出总是杂乱的。服务端提供三个解析器，按顺序尝试：
 
 ```ts
 function parseMeetingTranscriptAny(rawAssistant: string) {
@@ -84,21 +84,21 @@ function parseMeetingTranscriptAny(rawAssistant: string) {
 }
 ```
 
-1. **JSON** — strict `JSON.parse` of `{ lines: [{ speaker, text }] }`
-2. **Fenced JSON** — strip ```` ```json ... ``` ```` fences, then JSON.parse
-3. **Outer slice** — `sliceOutermostJsonObject()` to grab the first `{...}` from prose
+1. **JSON** —— 对 `{ lines: [{ speaker, text }] }` 进行严格的 `JSON.parse`
+2. **代码块 JSON** —— 去掉 ```` ```json ... ``` ```` 围栏后再 `JSON.parse`
+3. **外层切片** —— `sliceOutermostJsonObject()` 从散文里抠出第一个 `{...}`
 
-If JSON parsing fails entirely, the loose parser kicks in:
+如果 JSON 解析全部失败，则启用宽松解析器：
 
 ```ts
-const allowed = /^(秘书|制作人|技术总监|创意总监)\s*[:：]\s*(.+)$/;
+const allowed = /^(Secretary|Producer|Technical Director|Creative Director)\s*[:：]\s*(.+)$/;
 ```
 
-This matches Chinese speakers followed by a colon (full-width `：` or half-width `:`), one per line. Three or more matched lines → transcript. Designed for small local models that ignore JSON output format.
+它匹配「发言人 + 冒号（全角 `：` 或半角 `:`）」，每行一条。匹配到三行及以上即视为会议记录。这种设计是为了照顾那些忽略 JSON 输出格式的小型本地模型。
 
-## The "auto kickoff" checkbox
+## 「自动开局」复选框
 
-In the meeting tab, there's a `meetingAutoKickoff` checkbox. When checked, after `charter.archived` fires, the server automatically enqueues the producer chain:
+会议室 Tab 里有一个 `meetingAutoKickoff` 复选框。勾选后，`charter.archived` 一旦触发，服务端会自动入队 producer 链：
 
 ```ts
 if (meetingAutoKickoff && ev.type === "charter.archived") {
@@ -106,67 +106,67 @@ if (meetingAutoKickoff && ev.type === "charter.archived") {
 }
 ```
 
-This is what the secretary HUD calls "立项首包跑完后会自动入队策划/程序/美术/QA 衔接任务".
+秘书 HUD 会报告：「开局首版完成后，design / programming / art / QA 的跟进任务会自动入队」。
 
-## Charter drift UI
+## 章程漂移 UI
 
 ```mermaid
 flowchart LR
-  Save[保存草稿] -->|compare with archive| Compute[driftKinds]
-  Compute -->|non-empty| Banner[变更提醒]
-  Banner -->|click 查看| Form[Highlight diffs in form]
-  Banner -->|click 清除| Clear[POST /api/charter/changes/clear]
+  Save[Save draft] -->|compare with archive| Compute[driftKinds]
+  Compute -->|non-empty| Banner[Change notification]
+  Banner -->|click View| Form[Highlight diffs in form]
+  Banner -->|click Clear| Clear[POST /api/charter/changes/clear]
   Compute -->|empty| Silent[No banner]
 ```
 
-The drift kinds:
+漂移类型：
 
-- `goal_changed` — `draft.goal.trim() !== archived.goal.trim()`
-- `milestones_changed` — JSON.stringify of normalised milestone array differs
-- `nodes_changed` — JSON.stringify of normalised nodes array differs
-- `first_archive` — never had an archive but the draft has content
+- `goal_changed` —— `draft.goal.trim() !== archived.goal.trim()`
+- `milestones_changed` —— 归一化后的里程碑数组的 JSON.stringify 不同
+- `nodes_changed` —— 归一化后的 nodes 数组的 JSON.stringify 不同
+- `first_archive` —— 从未归档过，但 draft 已有内容
 
-The UI shows: `待确认偏离：goal_changed, milestones_changed（累计 3）`. The `count` is the number of times drift has been recorded for the current draft (so the boss knows the draft has been "wobbling").
+UI 会展示：`Pending drift: goal_changed, milestones_changed（合计 3）`。`count` 是当前 draft 累计记录的漂移次数（这样老板就知道 draft「一直在晃」）。
 
-## Skip-LLM meetings (the "rules" mode)
+## 跳过 LLM 的会议（「规则」模式）
 
-Sometimes the boss doesn't want a 3-LLM round. The meeting drawer has a `meetingSkipLlm` checkbox; when on, the meeting transcript is **pre-canned rules-based content** and no LLM call is made.
+有时候老板不想走 3 个 LLM 的轮询。会议室抽屉里有一个 `meetingSkipLlm` 复选框；勾上后，会议记录会用**预置的规则化内容**，不再调用 LLM。
 
-The two modes map to the `producer.mode` and `creativeDirector.mode` policy fields:
+两种模式对应 `producer.mode` 与 `creativeDirector.mode` 的策略字段：
 
-- `mode: "rules"` → meeting drawer uses canned prompts
-- `mode: "llm"` → meeting drawer calls the meeting provider (default: `cloud`)
+- `mode: "rules"` —— 会议室抽屉使用预置提示
+- `mode: "llm"` —— 会议室抽屉调用会议提供方（默认：`cloud`）
 
-Default policy is `"rules"` for all three tiers — change to `"llm"` to enable the LLM-driven path.
+三个层级的默认策略都是 `"rules"`——改为 `"llm"` 以启用 LLM 驱动路径。
 
-## Project switching inside the meeting drawer
+## 会议室抽屉内的项目切换
 
-The drawer has a `meetingProject` select. Switching it triggers:
+抽屉里有一个 `meetingProject` 选择器。切换时会触发：
 
-1. `setCurrentProjectGlobal(pid)` (writes to `window.__STUDIO_CURRENT_PROJECT__`)
-2. `refreshCharter()` — re-fetches `/api/charter?projectId=...`
-3. `refreshCharterChanges()` — re-fetches `/api/charter/changes?projectId=...`
+1. `setCurrentProjectGlobal(pid)`（写入 `window.__STUDIO_CURRENT_PROJECT__`）
+2. `refreshCharter()` —— 重新拉取 `/api/charter?projectId=...`
+3. `refreshCharterChanges()` —— 重新拉取 `/api/charter/changes?projectId=...`
 
-This means the same UI can be used to manage multiple projects (e.g. "Snake MVP" + "Card Game Spinoff" in parallel).
+这意味着同一套 UI 可用于管理多个项目（例如同时跑「Snake MVP」与「Card Game Spinoff」）。
 
-## Edge cases the spec calls out
+## 规范中点出的边界场景
 
-From `studio-meeting-room/spec.md`:
+来自 `studio-meeting-room/spec.md`：
 
-> **Scenario: 重复点击开始按钮**
-> - **WHEN** 老板在已有未结束会议时再次点击"开始会议"
-> - **THEN** 系统 SHALL 忽略第二次点击（避免重复生成 transcript）
+> **Scenario: Repeatedly clicking the Start button**
+> - **WHEN** the boss clicks "Start meeting" again while a meeting is still in progress
+> - **THEN** the system SHALL ignore the second click (to avoid generating duplicate transcripts)
 
-> **Scenario: LLM 解析失败**
-> - **WHEN** 三个总监的 LLM 输出均无法被任何 parser 解析
-> - **THEN** 系统 SHALL 显示错误并在 transcript 区域留空（而非崩溃）
+> **Scenario: LLM parse failure**
+> - **WHEN** none of the three directors' LLM outputs can be parsed by any parser
+> - **THEN** the system SHALL show an error and leave the transcript area empty (rather than crash)
 
-> **Scenario: 立项会无 LLM**
-> - **WHEN** 勾选"跳过 LLM"后点击开始
-> - **THEN** 系统 SHALL 用内置模板填充 transcript，并允许老板直接编辑 charter
+> **Scenario: Kickoff meeting with no LLM**
+> - **WHEN** "Skip LLM" is checked and Start is clicked
+> - **THEN** the system SHALL fill the transcript with built-in templates and let the boss edit the charter directly
 
-## Next
+## 接下来
 
-- [OpenSpec Change Control](/docs/05-openspec) — the wider spec system the charter lives in
-- [Monitor & HTML Preview](/docs/07-monitor-and-preview) — what gets saved when the producer chain finishes
-- [Finance & Model Routing](/docs/09-finance-and-routing) — how meeting provider is chosen
+- [OpenSpec 变更控制](/docs/05-openspec) —— 章程所在的更大规范体系
+- [监控与 H5 预览](/docs/07-monitor-and-preview) —— producer 链完成后会保存什么
+- [财务与模型路由](/docs/09-finance-and-routing) —— 会议提供方是如何选定的

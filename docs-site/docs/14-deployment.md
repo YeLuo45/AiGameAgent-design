@@ -1,65 +1,65 @@
-# 14 · Deployment
+# 14 · 部署
 
-The Studio server is a single Node.js process. Deployment is "run it on a host with the right env vars and a reachable LLM upstream". This page covers the three deployment modes the team uses: **local dev**, **LAN / staging**, and **containerized**.
+Studio 服务端是一个独立的 Node.js 进程。部署就是"在一台具备正确环境变量和可达 LLM 上游的机器上把它跑起来"。本章覆盖团队使用的三种部署模式：**本地开发**、**局域网 / 预发布**、**容器化**。
 
-## Mode 1: Local dev (the default)
+## 模式一：本地开发（默认）
 
 ```bash
-# 1. Clone
+# 1. 克隆
 git clone https://github.com/YeLuo45/AiGameAgent
 cd AiGameAgent
 
-# 2. Install (npm workspaces auto-link apps/* and packages/*)
+# 2. 安装（npm workspaces 会自动 link apps/* 和 packages/*）
 npm install
 
-# 3. Configure
+# 3. 配置
 cp .env.example .env
-# Edit .env if needed
+# 按需编辑 .env
 
-# 4. Start both server and web in one terminal
+# 4. 一个终端同时启动 server 和 web
 npm run dev
-# → server on http://127.0.0.1:8787
-# → web   on http://127.0.0.1:5173
+# → server 监听 http://127.0.0.1:8787
+# → web    监听 http://127.0.0.1:5173
 
-# 5. Or start them separately
+# 5. 也可以分别启动
 npm run dev:server
 npm run dev:web
 
-# 6. Smoke test
+# 6. 烟雾测试
 npm run check:studio-e2e
 ```
 
-> Loopback bind (`127.0.0.1`) is **deliberate** — keep the studio on loopback unless you understand the implications. See [Security notes](#security-notes) below.
+> 回环绑定（`127.0.0.1`）是**有意为之**——除非你已了解其影响，否则请将工作室保留在回环上。详见下方 [安全说明](#安全说明)。
 
-### Prerequisites
+### 前置依赖
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Node.js | ≥ 20 | ESM modules, native `node:http` |
-| npm | ≥ 10 | bundled with Node 20 |
-| Ollama | latest | default upstream; not required if you use cloud |
-| (optional) ffmpeg | latest | only for video transcoding |
-| (optional) PowerShell | 5+ | Windows only — used for GPU detection |
+| Node.js | ≥ 20 | ESM 模块、原生 `node:http` |
+| npm | ≥ 10 | Node 20 自带 |
+| Ollama | latest | 默认上游；如果用云端则不是必须 |
+| (可选) ffmpeg | latest | 仅用于视频转码 |
+| (可选) PowerShell | 5+ | 仅 Windows —— 用于 GPU 检测 |
 
-### Environment variables
+### 环境变量
 
 | Var | Default | Notes |
 |-----|---------|-------|
-| `STUDIO_PORT` | `8787` | server listen port |
-| `STUDIO_HOST` | `127.0.0.1` | server bind host |
-| `STUDIO_REPO_ROOT` | `process.cwd()` | file roots (charter, preview, policy) |
-| `STUDIO_LOG_PATH` | `<repo>/studio_events.jsonl` | event log path |
-| `STUDIO_UPSTREAM_BASE_URL` | `http://127.0.0.1:11434/v1` | OpenAI-compatible upstream |
-| `STUDIO_MODEL` | `llama3.2` | default bench model |
-| `STUDIO_IMAGE_BASE_URL` | (unset → upstream) | image-gen endpoint |
-| `STUDIO_IMAGE_MODEL` | `dall-e-2` | image-gen model |
-| `STUDIO_IMAGE_API_KEY` | (unset) | optional separate key |
-| `STUDIO_DEBUG_PROXY_HEADERS` | `0` | `1` = log forwarded headers (auth redacted) |
-| `FFMPEG_PATH` | (unset → `ffmpeg` on PATH) | video transcoder path |
+| `STUDIO_PORT` | `8787` | 服务端监听端口 |
+| `STUDIO_HOST` | `127.0.0.1` | 服务端绑定地址 |
+| `STUDIO_REPO_ROOT` | `process.cwd()` | 文件根目录（charter、preview、policy） |
+| `STUDIO_LOG_PATH` | `<repo>/studio_events.jsonl` | 事件日志路径 |
+| `STUDIO_UPSTREAM_BASE_URL` | `http://127.0.0.1:11434/v1` | OpenAI 兼容上游 |
+| `STUDIO_MODEL` | `llama3.2` | 默认基准测试模型 |
+| `STUDIO_IMAGE_BASE_URL` | （未设置 → 上游） | 图像生成端点 |
+| `STUDIO_IMAGE_MODEL` | `dall-e-2` | 图像生成模型 |
+| `STUDIO_IMAGE_API_KEY` | （未设置） | 可选的独立 key |
+| `STUDIO_DEBUG_PROXY_HEADERS` | `0` | `1` = 记录转发的头（auth 会被脱敏） |
+| `FFMPEG_PATH` | （未设置 → PATH 中的 `ffmpeg`） | 视频转码器路径 |
 
-## Mode 2: LAN / staging
+## 模式二：局域网 / 预发布
 
-To expose the studio on a LAN, set `STUDIO_HOST=0.0.0.0`:
+要把工作室暴露到局域网，设置 `STUDIO_HOST=0.0.0.0`：
 
 ```bash
 STUDIO_HOST=0.0.0.0 \
@@ -68,16 +68,16 @@ STUDIO_UPSTREAM_BASE_URL=http://192.168.1.50:11434/v1 \
 npm run dev:server
 ```
 
-**Security checklist before exposing LAN:**
+**暴露到局域网之前的安全清单：**
 
-- [ ] Place a reverse proxy (nginx / caddy) in front for TLS
-- [ ] Add basic auth or OIDC at the proxy layer
-- [ ] Set `STUDIO_DEBUG_PROXY_HEADERS=0`
-- [ ] Verify `.env` is not committed (`git status` should not show it)
-- [ ] Verify `production/` is gitignored (it is, by default)
-- [ ] Consider rate-limiting at the proxy
+- [ ] 在前端放置反向代理（nginx / caddy）以提供 TLS
+- [ ] 在代理层加上 Basic Auth 或 OIDC
+- [ ] 设置 `STUDIO_DEBUG_PROXY_HEADERS=0`
+- [ ] 确认 `.env` 没有被提交（`git status` 不应出现它）
+- [ ] 确认 `production/` 已被 gitignore（默认就是）
+- [ ] 考虑在代理层做限流
 
-Example nginx config:
+示例 nginx 配置：
 
 ```nginx
 server {
@@ -87,11 +87,11 @@ server {
   ssl_certificate     /etc/letsencrypt/live/studio.example.com/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/studio.example.com/privkey.pem;
 
-  # Optional: basic auth
+  # 可选：Basic Auth
   auth_basic "Studio";
   auth_basic_user_file /etc/nginx/.htpasswd;
 
-  # WebSocket upgrade
+  # WebSocket 升级
   proxy_http_version 1.1;
   proxy_set_header Upgrade $http_upgrade;
   proxy_set_header Connection "upgrade";
@@ -100,31 +100,31 @@ server {
     proxy_pass http://127.0.0.1:8787;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
-    proxy_read_timeout 600s;  # long-running SSE
+    proxy_read_timeout 600s;  # 长跑的 SSE
   }
 }
 ```
 
-## Mode 3: Containerized (Docker)
+## 模式三：容器化（Docker）
 
-A minimal Dockerfile:
+一个最小化的 Dockerfile：
 
 ```dockerfile
 FROM node:20-slim
 
-# Optional: ffmpeg for video transcoding
+# 可选：用于视频转码的 ffmpeg
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install deps
+# 安装依赖
 COPY package.json package-lock.json ./
 COPY apps/studio-server/package.json apps/studio-server/
 COPY apps/studio-web/package.json apps/studio-web/
 COPY packages/shared/package.json packages/shared/
 RUN npm install --omit=dev --no-audit --no-fund
 
-# Build server (tsc) and web (vite)
+# 构建 server（tsc）和 web（vite）
 COPY tsconfig.base.json ./
 COPY packages/shared/ packages/shared/
 COPY apps/studio-server/ apps/studio-server/
@@ -132,14 +132,14 @@ COPY apps/studio-web/ apps/studio-web/
 RUN cd apps/studio-server && npx tsc -p tsconfig.json
 RUN cd apps/studio-web && npx vite build
 
-# Runtime
+# 运行时
 ENV STUDIO_HOST=0.0.0.0
 ENV STUDIO_PORT=8787
 EXPOSE 8787
 CMD ["sh", "-c", "cd apps/studio-server && node dist/index.js"]
 ```
 
-Build & run:
+构建并运行：
 
 ```bash
 docker build -t aigameagent-studio:latest .
@@ -149,40 +149,40 @@ docker run -p 8787:8787 -p 5173:5173 \
   aigameagent-studio:latest
 ```
 
-The `-v` mount persists `production/` between runs (charter, policy, preview).
+`-v` 挂载会持久化 `production/`（charter、policy、preview）在多次运行间的内容。
 
-> The `host.docker.internal` DNS works on Docker Desktop (Win/Mac) to reach the host's Ollama. On Linux, use `--network host` or pass the host's IP explicitly.
+> `host.docker.internal` 这个 DNS 在 Docker Desktop（Win/Mac）上可用，用于访问宿主机上的 Ollama。在 Linux 上，请改用 `--network host` 或显式传入宿主机 IP。
 
-## Reverse proxy + LLM gateway
+## 反向代理 + LLM 网关
 
-For production, the recommended topology is:
+生产环境推荐如下拓扑：
 
 ```mermaid
 flowchart LR
-  U[👤 Boss browser] -->|HTTPS| N[nginx / caddy]
+  U[👤 老板浏览器] -->|HTTPS| N[nginx / caddy]
   N -->|http| S[Studio server :8787]
   S -->|http| O[Ollama / vLLM :11434]
   S -.optional.->|https| C[OpenAI / DeepSeek]
   N -.optional.->|WSS| S
 ```
 
-If you put a gateway (e.g. LiteLLM, OpenRouter) in front of the LLM, point `STUDIO_UPSTREAM_BASE_URL` at the gateway:
+如果你在 LLM 前面再放一个网关（例如 LiteLLM、OpenRouter），把 `STUDIO_UPSTREAM_BASE_URL` 指向网关即可：
 
 ```
 STUDIO_UPSTREAM_BASE_URL=https://gateway.example.com/openai/v1
 ```
 
-The studio doesn't care — anything that speaks OpenAI compat is fine.
+工作室对此并不在意——任何兼容 OpenAI 的实现都可以。
 
-## WebSocket considerations
+## WebSocket 相关
 
-The `/ws` upgrade requires:
+`/ws` 升级需要：
 
-- HTTP/1.1 (most proxies)
-- `Connection: upgrade` and `Upgrade: websocket` headers passed through
-- A long read timeout (SSE streams can run minutes)
+- HTTP/1.1（绝大多数代理都支持）
+- `Connection: upgrade` 和 `Upgrade: websocket` 头需要透传
+- 较长的读超时（SSE 流可能跑数分钟）
 
-nginx:
+nginx：
 
 ```nginx
 proxy_http_version 1.1;
@@ -191,7 +191,7 @@ proxy_set_header Connection "upgrade";
 proxy_read_timeout 600s;
 ```
 
-Caddy:
+Caddy：
 
 ```caddyfile
 reverse_proxy studio:8787 {
@@ -201,39 +201,39 @@ reverse_proxy studio:8787 {
 }
 ```
 
-## Monitoring
+## 监控
 
-The studio emits events to `studio_events.jsonl`. To monitor in real time:
+工作室会向 `studio_events.jsonl` 输出事件。要实时监控：
 
 ```bash
-# Tail events
+# 跟踪事件
 tail -f studio_events.jsonl | jq -c '{ts, type, agentId, .payload.ok}'
 
-# Count by type over the last hour
+# 统计最近一小时按 type 的数量
 tail -n 5000 studio_events.jsonl | jq -r .type | sort | uniq -c | sort -rn
 
-# Find failed jobs
+# 查找失败的 job
 jq -c 'select(.type == "job.failed" or (.type == "job.finished" and .payload.ok == false))' studio_events.jsonl
 ```
 
-For external monitoring, point a Prometheus exporter at `/api/finance/summary?range=today` (1-min scrape interval is fine).
+要做外部监控，把 Prometheus exporter 指向 `/api/finance/summary?range=today`（1 分钟一次抓取就够用）。
 
-## Security notes
+## 安全说明
 
-- **Loopback default**: `STUDIO_HOST=127.0.0.1` keeps the studio off the network. Don't change this unless you've added a reverse proxy with auth.
-- **No built-in auth**: the studio does **not** authenticate clients. Add auth at the proxy layer.
-- **Path traversal**: project IDs are sanitised to `[a-zA-Z0-9_-]` before any file I/O.
-- **Redaction**: `Authorization` headers are replaced with `Bearer ***` in any debug log (`STUDIO_DEBUG_PROXY_HEADERS=1`).
-- **No eval / dynamic require**: all modules are statically imported.
-- **`.env` is gitignored**: keep it that way. The shipped `.env.example` shows the schema but no real keys.
-- **`production/` is gitignored**: never commit the runtime state.
+- **默认回环**：`STUDIO_HOST=127.0.0.1` 让工作室不进入网络。除非你已经搭好带鉴权的反向代理，否则不要修改它。
+- **无内建鉴权**：工作室**不**对客户端进行认证。请在代理层加入鉴权。
+- **路径穿越**：项目 ID 在任何文件 I/O 之前已被规整为 `[a-zA-Z0-9_-]`。
+- **脱敏**：`Authorization` 头在任何调试日志中都会被替换为 `Bearer ***`（`STUDIO_DEBUG_PROXY_HEADERS=1`）。
+- **没有 eval / 动态 require**：所有模块均为静态 import。
+- **`.env` 已被 gitignore**：请保持这一点。仓库自带的 `.env.example` 给出 schema 但不包含任何真实 key。
+- **`production/` 已被 gitignore**：永远不要提交运行时状态。
 
-## Backing up
+## 备份
 
-To back up the studio's runtime state without stopping the server:
+无需停服即可备份工作室的运行时状态：
 
 ```bash
-# Charter + policy + model-routing + hire roster
+# charter + policy + model-routing + hire roster
 tar -czf backup-$(date +%Y%m%d).tar.gz \
   production/charter/ \
   production/policy.json \
@@ -242,25 +242,25 @@ tar -czf backup-$(date +%Y%m%d).tar.gz \
   studio_events.jsonl
 ```
 
-The preview tree can grow large; if you back it up, prefer `production/preview/<pid>/index.html` over the full history.
+preview 目录可能很大；如果要备份，建议只备份 `production/preview/<pid>/index.html` 而不是完整历史。
 
-## Upgrading
+## 升级
 
 ```bash
-# Pull latest
+# 拉取最新代码
 git pull
 
-# Re-install
+# 重新安装
 npm install
 
-# Restart (manual)
-# Ctrl-C the dev process, then `npm run dev` again
+# 重启（手动）
+# Ctrl-C 终止 dev 进程，然后再次执行 npm run dev
 ```
 
-The on-disk schema is forward-compatible: older `state.json` files are read with `??` defaults, so downgrades are usually safe.
+磁盘上的 schema 向前兼容：旧的 `state.json` 文件会以 `??` 默认值读取，因此降级通常是安全的。
 
-## Next
+## 接下来
 
-- [Tech Stack](/tech-stack) — exact library versions
-- [Studio Server](/docs/01-studio-server) — what the server does
-- [Open API Reference](/docs/13-api-reference) — every endpoint in one table
+- [技术栈](/tech-stack) —— 精确的库版本
+- [Studio 服务端](/docs/01-studio-server) —— 服务端的功能介绍
+- [开放 API 参考](/docs/13-api-reference) —— 全部端点合集

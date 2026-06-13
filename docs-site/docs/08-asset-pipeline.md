@@ -1,70 +1,70 @@
-# 08 · Asset Pipeline
+# 08 · 资源管道
 
-AiGameAgent ships with a small but complete asset pipeline: image generation, sprite-sheet packing, and video transcoding. All three run in the same Node.js process as the server, all three emit `asset.*` events, and all three write into the same `production/preview/<projectId>/assets/` tree.
+AiGameAgent 自带一套小巧但完整的资源管道：图像生成、精灵表打包、视频转码。三个都在与服务器相同的 Node.js 进程里跑，都会发 `asset.*` 事件，都会写入同一棵 `production/preview/<projectId>/assets/` 目录树。
 
-**Source:** `apps/studio-server/src/asset-pipeline.ts` (~280 LOC)
+**Source:** `apps/studio-server/src/asset-pipeline.ts`（约 280 行）
 
-## Three operations
+## 三类操作
 
-| Function | Output | Use case |
+| 函数 | 输出 | 用途 |
 |----------|--------|----------|
-| `studioGenerateImages` | PNG files at `assets/gen/<runId>/{0..n-1}.png` | Hero art, character concepts, UI textures |
-| `studioPackSpritesheet` | Composite PNG + JSON frame metadata at `assets/<name>.{png,json}` | Animation frames, tile sets |
-| `studioTranscodeVideo` | Encoded video file at `assets/<output>` | Promo videos, gameplay captures |
+| `studioGenerateImages` | PNG 文件位于 `assets/gen/<runId>/{0..n-1}.png` | 主视觉、角色概念、UI 贴图 |
+| `studioPackSpritesheet` | 合成 PNG + JSON 帧元数据位于 `assets/<name>.{png,json}` | 动画帧、Tileset |
+| `studioTranscodeVideo` | 编码后的视频文件位于 `assets/<output>` | 宣传片、游戏录屏 |
 
-All three:
+三者共同点：
 
-- Sanitise `projectId` to `[a-zA-Z0-9_-]` (path-traversal safe)
-- Compute paths relative to `repoRoot` (for display in events)
-- Reject with `{ ok: false, error, status? }` on failure
+- 把 `projectId` 清洗为 `[a-zA-Z0-9_-]`（防路径穿越）
+- 路径以 `repoRoot` 为基准计算（用于在事件中展示）
+- 失败时返回 `{ ok: false, error, status? }`
 
-## Image generation
+## 图像生成
 
 ```ts
 async function studioGenerateImages(opts: {
   repoRoot: string;
   projectId: string;
   prompt: string;
-  n?: number;            // 1-10, default 1
-  size?: string;         // default "1024x1024"
+  n?: number;            // 1-10，默认 1
+  size?: string;         // 默认 "1024x1024"
   imageBaseUrl: string;  // OpenAI-compatible /v1
   apiKey?: string;
-  model?: string;        // default "dall-e-2"
+  model?: string;        // 默认 "dall-e-2"
 }): Promise<GenOk | GenErr>;
 ```
 
-Flow:
+流程：
 
-1. Validate projectId, prompt
-2. Clamp `n` to 1-10
-3. POST `{ model, prompt, n, size, response_format: "url" }` to `images/generations`
-4. For each returned URL, fetch the binary, write to `production/preview/<pid>/assets/gen/<runId>/<i>.png`
-5. Emit `asset.image_saved` with `{ projectId, runId, files, relPaths }`
+1. 校验 `projectId`、`prompt`
+2. 把 `n` 钳制在 1-10
+3. 向 `images/generations` 发送 POST `{ model, prompt, n, size, response_format: "url" }`
+4. 对每个返回的 URL，取二进制并写入 `production/preview/<pid>/assets/gen/<runId>/<i>.png`
+5. 发出 `asset.image_saved`，载荷为 `{ projectId, runId, files, relPaths }`
 
-If the upstream returns a base64 payload instead of a URL, the function will still try to decode it (graceful degradation for non-OpenAI upstreams that return `b64_json`).
+如果上游返回的是 base64 而不是 URL，函数也会尝试解码（对返回 `b64_json` 的非 OpenAI 上游提供优雅降级）。
 
-## Sprite-sheet packing
+## 精灵表打包
 
 ```ts
 async function studioPackSpritesheet(opts: {
   repoRoot: string;
   projectId: string;
-  sourceDir: string;   // folder of input PNGs/JPGs
-  outputName: string;  // base name for output
-  maxWidth?: number;   // default 2048
+  sourceDir: string;   // 输入 PNG/JPG 所在文件夹
+  outputName: string;  // 输出基础名
+  maxWidth?: number;   // 默认 2048
 }): Promise<{ ok: true; output: string; json: string; frameCount: number } | GenErr>;
 ```
 
-Flow:
+流程：
 
-1. List input files in `sourceDir` (PNG / JPG / WebP)
-2. Sort by filename (so frame order is deterministic)
-3. Compute layout: grid, max `maxWidth` per row
-4. Composite with `sharp` — each input read, resized if too large, placed at `(col*tileW, row*tileH)`
-5. Write `production/preview/<pid>/assets/<outputName>.png` (the sheet) and `<outputName>.json` (frame metadata)
-6. Emit `asset.spritesheet_saved`
+1. 列出 `sourceDir` 中的输入文件（PNG / JPG / WebP）
+2. 按文件名排序（帧顺序确定性）
+3. 计算布局：网格，每行最大 `maxWidth`
+4. 用 `sharp` 合成——逐个读取输入，过大则缩放，按 `(col*tileW, row*tileH)` 放置
+5. 写出 `production/preview/<pid>/assets/<outputName>.png`（精灵表）以及 `<outputName>.json`（帧元数据）
+6. 发出 `asset.spritesheet_saved`
 
-The JSON output format (Aseprite-compatible):
+JSON 输出格式（Aseprite 兼容）：
 
 ```json
 {
@@ -83,37 +83,37 @@ The JSON output format (Aseprite-compatible):
 }
 ```
 
-## Video transcoding
+## 视频转码
 
 ```ts
 async function studioTranscodeVideo(opts: {
   repoRoot: string;
   projectId: string;
-  input: string;     // path relative to repoRoot, or absolute within repo
-  output: string;    // target path relative to preview assets
-  codec?: string;    // default "libx264"
+  input: string;     // 相对于 repoRoot 的路径，或 repo 内的绝对路径
+  output: string;    // 相对于预览资源目录的目标路径
+  codec?: string;    // 默认 "libx264"
 }): Promise<{ ok: true; output: string } | GenErr>;
 ```
 
-Flow:
+流程：
 
-1. Validate both paths are under `repoRoot` (`isUnderRepoRoot()`)
-2. Spawn `ffmpeg` (or `process.env.FFMPEG_PATH`) with `-i <input> -c:v <codec> <output>`
-3. Capture stdout/stderr; reject on non-zero exit
-4. Emit `asset.pipeline_failed` (with `stage: "ffmpeg"`) on failure, or no event on success (the caller emits its own `job.finished`)
+1. 校验两条路径都在 `repoRoot` 下（`isUnderRepoRoot()`）
+2. 用 `-i <input> -c:v <codec> <output>` 派生 `ffmpeg`（或 `process.env.FFMPEG_PATH`）
+3. 捕获 stdout/stderr；非零退出即拒绝
+4. 失败时发出 `asset.pipeline_failed`（带 `stage: "ffmpeg"`）；成功时不发事件（由调用方自行发出 `job.finished`）
 
-The function does **not** emit a "video saved" event in v1 — the assumption is that the caller (a Job) wraps the operation and emits `job.finished` itself.
+v1 中该函数**不**发「视频已保存」事件——假设调用方（一个 Job）会包住这次操作，自己发 `job.finished`。
 
-## Error shapes
+## 错误形态
 
 ```ts
 type GenOk = { ok: true; projectId: string; runId: string; files: string[]; relPaths: string[] };
 type GenErr = { ok: false; error: string; status?: number };
 ```
 
-`status` is set when the upstream returned an HTTP error (4xx / 5xx). It's a hint for `/api/finance/summary` to attribute the failure.
+当上游返回 HTTP 错误（4xx / 5xx）时，`status` 会被设置。它会作为提示，让 `/api/finance/summary` 把失败归因到对应位置。
 
-## Path safety
+## 路径安全
 
 ```ts
 function isUnderRepoRoot(repoRoot: string, absPath: string): boolean {
@@ -123,9 +123,9 @@ function isUnderRepoRoot(repoRoot: string, absPath: string): boolean {
 }
 ```
 
-This is the only place that does the check — both for inputs (to prevent reading outside the repo) and for outputs (to prevent writing outside `production/preview/`).
+这是唯一做这道检查的地方——对输入（防止读取到 repo 外）是这样，对输出（防止写到 `production/preview/` 之外）也是这样。
 
-The `safeProjectId()` helper is the first line of every export:
+`safeProjectId()` 助手是每个导出函数的第一行：
 
 ```ts
 function safeProjectId(projectId: string): string {
@@ -133,13 +133,13 @@ function safeProjectId(projectId: string): string {
 }
 ```
 
-If the result is empty, the function returns `{ ok: false, error: "bad_project_id" }` before doing any I/O.
+如果清洗后为空，函数在任何 I/O 之前就会返回 `{ ok: false, error: "bad_project_id" }`。
 
-## How the agent calls these
+## Agent 如何调用这些函数
 
-In a typical job, the agent's task description includes a hint like "生成 4 张 512x512 的主角概念图" or "把 assets/frames/ 里的 PNG 打成 sprite sheet". The agent's output is parsed server-side; if it matches an "intent" pattern, the server invokes the corresponding pipeline function. (In v1 this dispatch is **manual** — the producer or art-director writes instructions, and the LLM emits a structured response that the server knows how to interpret.)
+在典型 Job 中，Agent 的任务描述会带一条提示，比如「生成 4 张 512x512 主视觉概念图」或「把 `assets/frames/` 里的 PNG 打成精灵表」。Agent 的输出由服务端解析；若匹配某个「意图」模式，服务端就调用对应的管道函数。（v1 中此调度**是手动的**——producer 或 art-director 写指示，LLM 输出服务端能够理解的结构化响应。）
 
-Example server-side dispatch (not in v1, but planned):
+服务端调度的示例（v1 中尚无，但计划中）：
 
 ```ts
 if (task.includes("生成") && task.includes("图片")) {
@@ -148,18 +148,18 @@ if (task.includes("生成") && task.includes("图片")) {
 }
 ```
 
-The pipeline functions are **not** auto-invoked by the OpenAI proxy; they're a library the server (or a job) calls explicitly.
+管道函数**不是**由 OpenAI 代理自动调用的；它们是供服务端（或 Job）显式调用的库。
 
-## Why sharp (and not canvas / jimp)?
+## 为什么选 sharp（而不是 canvas / jimp）？
 
-- **sharp** is the de-facto Node.js image library — backed by libvips, fast even on large images, and bundles native binaries for common platforms (Windows / macOS / Linux)
-- It's the only image lib in the Node ecosystem that handles `RGBA8888` / `PremultipliedAlpha` correctly out of the box, which matters for sprite-sheet packing
-- `jimp` is pure JS but ~10× slower and lacks some operations sharp exposes
+- **sharp** 是事实上的 Node.js 图像库——由 libvips 驱动，即便在大型图像上也很快，并为常见平台（Windows / macOS / Linux）打包了原生二进制
+- 它是 Node 生态里唯一开箱即用地正确处理 `RGBA8888` / `PremultipliedAlpha` 的图像库——这在精灵表打包中很关键
+- `jimp` 是纯 JS，但速度慢约 10 倍，且缺少 sharp 暴露的部分操作
 
-The downside: sharp ships native binaries (~30 MB), which is why the asset pipeline is optional. A minimal AiGameAgent install without sharp is still fully functional — the sprite-sheet packer just won't be available.
+代价：sharp 自带约 30 MB 的原生二进制，这也是为什么资源管道是可选的。没有 sharp 的最小化 AiGameAgent 安装仍然完全可用——只是精灵表打包不可用。
 
-## Next
+## 接下来
 
-- [Monitor & HTML Preview](/docs/07-monitor-and-preview) — where the assets are served from
-- [Finance & Model Routing](/docs/09-finance-and-routing) — how asset-pipeline costs are tracked
-- [Local LLM Integration](/docs/10-local-llm) — image model routing
+- [监控与 H5 预览](/docs/07-monitor-and-preview) —— 资源的提供位置
+- [财务与模型路由](/docs/09-finance-and-routing) —— 资源管道的成本是如何被追踪的
+- [Local LLM 集成](/docs/10-local-llm) —— 图像模型的路由

@@ -1,28 +1,28 @@
-# 09 · Finance & Model Routing
+# 09 · 财务与模型路由
 
-AiGameAgent is **financially aware**: every token, every request, and every failure is attributed to a provider. The boss can see the cost of a session, the failure rate by reason, and the per-provider request mix. A simple three-tier model routing (save / balance / quality) decides where new requests go.
+AiGameAgent **具备财务感知**：每个 token、每次请求、每次失败都归因到一个提供方。老板能看一次会话的成本、按原因的失败率、按提供方的请求分布。一套简单的三档模型路由（save / balance / quality）决定新请求的去向。
 
-**Source:** `apps/studio-server/src/index.ts` (finance summary, model routing) + `production/model-routing.json`
+**Source:** `apps/studio-server/src/index.ts`（财务汇总、模型路由）+ `production/model-routing.json`
 
-## Three tiers
+## 三档
 
 ```ts
 type ModelRouting = {
   tier: "save" | "balance" | "quality";
-  executionProviderId: string;   // for normal agent jobs
-  meetingProviderId: string;     // for meeting (leadership) jobs
+  executionProviderId: string;   // 普通 Agent Job 使用
+  meetingProviderId: string;     // 会议室（领导层）Job 使用
 };
 ```
 
-| Tier | Execution | Meeting | When to pick |
+| 档 | 执行 | 会议 | 何时选用 |
 |------|-----------|---------|--------------|
-| `save` | `local` (Ollama) | `local` | "No cloud bill — everything is local" |
-| `balance` | `local` (Ollama) | `cloud` | "Default: cheap execution, smart meeting" |
-| `quality` | `cloud` | `cloud` | "Money is no object, send everything to the best model" |
+| `save` | `local`（Ollama） | `local` | 「不出云账单——全本地」 |
+| `balance` | `local`（Ollama） | `cloud` | 「默认：廉价的执行，聪明的会议」 |
+| `quality` | `cloud` | `cloud` | 「钱不是问题，全部交给最强模型」 |
 
-The default is `balance`. Switching tier writes to `production/model-routing.json` and emits no event (it's a settings flip, not a state change).
+默认为 `balance`。切换档会写入 `production/model-routing.json`，并且不发事件（这是设置切换，不是状态变化）。
 
-## How a job picks a provider
+## Job 如何选择提供方
 
 ```ts
 function pickQueueProviderId(agentId: string, opts): { providerId: string; providerReason?: string } {
@@ -41,9 +41,9 @@ function pickQueueProviderId(agentId: string, opts): { providerId: string; provi
 }
 ```
 
-The `providerReason` is emitted as a `policy.decision` event so the boss can audit which path was taken.
+`providerReason` 会作为 `policy.decision` 事件发出，便于老板审计走了哪条路径。
 
-## Provider configuration
+## 提供方配置
 
 ```ts
 type Provider = {
@@ -57,23 +57,23 @@ type Provider = {
 };
 ```
 
-The default providers (hard-coded in `getProviders()`):
+默认提供方（在 `getProviders()` 中硬编码）：
 
 | ID | Label | Kind | baseUrl | Pricing |
 |----|-------|------|---------|---------|
-| `local` | 本地 (Ollama) | local | `http://127.0.0.1:11434/v1` | `0 / 0` |
-| `lan` | 局域网 (vLLM) | lan | `http://127.0.0.1:8000/v1` | `0 / 0` |
-| `cloud` | 云端 (OpenAI) | cloud | `https://api.openai.com/v1` | `0.005 / 0.015` USD |
+| `local` | Local (Ollama) | local | `http://127.0.0.1:11434/v1` | `0 / 0` |
+| `lan` | LAN (vLLM) | lan | `http://127.0.0.1:8000/v1` | `0 / 0` |
+| `cloud` | Cloud (OpenAI) | cloud | `https://api.openai.com/v1` | `0.005 / 0.015` USD |
 
-The `studio-providers.json` (gitignored) overrides the defaults; the boss can add their own (e.g. `deepseek`, `doubao`) without restarting.
+`studio-providers.json`（gitignored）会覆盖默认值；老板可以加入自己的（例如 `deepseek`、`doubao`），无需重启。
 
-## Finance summary endpoint
+## 财务汇总端点
 
 ```http
 GET /api/finance/summary?range=today
 ```
 
-Response:
+响应：
 
 ```json
 {
@@ -93,44 +93,44 @@ Response:
 }
 ```
 
-### How it's computed
+### 它是怎么算出来的
 
-1. Read `studio_events.jsonl`, last 5,000 lines
-2. Filter to events with `ts` matching `range` and after the last `finance.reset` of the same range
-3. **tokensEstimated** = sum of `llm.chunk.payload.text.length` for events after the last reset, divided by 4 (rough char-to-token ratio)
-4. **requests** = count of `job.started`
-5. **cost** = `(tokensEstimated / 1000) * cloud.pricing.outputPer1k` (cloud only — local is free)
-6. **failures** = count of `job.finished` with `ok === false`
-7. **failuresByReason** = group by `payload.failureReason`
-8. **requestsByProvider** = group `job.started.payload.providerId`
+1. 读取 `studio_events.jsonl` 最近 5,000 行
+2. 筛选出 `ts` 落在 `range` 内、且在同一 `range` 的最后一次 `finance.reset` 之后的事件
+3. **tokensEstimated** = 这些事件中 `llm.chunk.payload.text.length` 之和，再除以 4（粗略的字符/Token 比）
+4. **requests** = `job.started` 的计数
+5. **cost** = `(tokensEstimated / 1000) * cloud.pricing.outputPer1k`（仅算 cloud——local 免费）
+6. **failures** = `ok === false` 的 `job.finished` 计数
+7. **failuresByReason** = 按 `payload.failureReason` 分组
+8. **requestsByProvider** = 按 `job.started.payload.providerId` 分组
 
-> The token estimator (chars / 4) is intentionally crude. A future change can swap in a per-model tokenizer.
+> 这个 token 估算（字符数 / 4）是有意粗糙的。未来的变更可以替换成按模型的 tokenizer。
 
-### Why "last 5,000 lines"?
+### 为什么是「最近 5,000 行」？
 
-The events log grows unboundedly. Reading the whole file would eventually be slow; reading only the tail is fast and covers the typical session. The actual budget is 5,000 lines or 24 hours, whichever is shorter.
+事件日志会无界增长。读整个文件终究会变慢；只读尾部既快，又能覆盖典型会话。实际预算为 5,000 行或 24 小时，取较短者。
 
-### Reset semantics
+### 重置语义
 
-`POST /api/finance/reset` emits a `finance.reset` event into the log; subsequent reads treat events **before** the latest reset as not-counted. The log itself is **not** truncated — the boss can still see the full audit trail in `studio_events.jsonl`.
+`POST /api/finance/reset` 会向日志发出一条 `finance.reset` 事件；后续读取时，**最后一次 reset 之前**的事件不计入。日志本身**不会**被截断——老板仍能在 `studio_events.jsonl` 中看到完整的审计轨迹。
 
-## Per-failure attribution
+## 每次失败的归因
 
-Every `job.failed` carries:
+每条 `job.failed` 都带：
 
 ```ts
 {
   jobId: string;
-  stage: string;        // e.g. "upstream", "parse", "policy"
+  stage: string;        // 例如 "upstream"、"parse"、"policy"
   message: string;
   hint?: string;
-  failureReason?: string;  // e.g. "upstream_5xx", "timeout", "cancelled", "policy_block"
+  failureReason?: string;  // 例如 "upstream_5xx"、"timeout"、"cancelled"、"policy_block"
   projectId?: string;
   workgroupId?: string;
 }
 ```
 
-Every `job.finished` (success or failure) carries:
+每条 `job.finished`（无论成功或失败）都带：
 
 ```ts
 {
@@ -139,39 +139,39 @@ Every `job.finished` (success or failure) carries:
   failureReason?: string;
   durationMs?: number;
   providerId?: string;
-  upstreamStatus?: number;  // HTTP status from upstream
+  upstreamStatus?: number;  // 上游返回的 HTTP 状态码
 }
 ```
 
-This is the spec from `studio-finance-telemetry`:
+这就是 `studio-finance-telemetry` 中的规范：
 
-> **Requirement: job.finished MUST 携带可归因字段**
-> 当任务执行失败时，系统 SHALL 在 `job.finished.payload` 中包含：`failureReason`、`durationMs`、`providerId`；若上游返回 HTTP 状态码可用，则 MUST 包含 `upstreamStatus`。
+> **Requirement: job.finished MUST carry attributable fields**
+> When a task execution fails, the system SHALL include in `job.finished.payload`: `failureReason`, `durationMs`, `providerId`; if the upstream returns an HTTP status code, it MUST include `upstreamStatus`.
 
-## Hardware grade → project limit
+## 硬件等级 → 项目上限
 
-The server computes a "grade" for the host (S / A / B / C) and uses it to cap **active parallel projects**:
+服务端为主机计算一个「等级」（S / A / B / C），并以此为**并发活跃项目数**封顶：
 
 ```ts
 const snap = await getAdviceSnapshot();
 const projectLimit = snap.grade === "S" ? 3 : snap.grade === "A" ? 2 : 1;
 ```
 
-The grade is derived from the advice snapshot (memory + GPU + bench latency). A 24GB+ GPU with low first-chunk latency → `S`. A 8GB GPU with ~2s first-chunk → `A`. CPU-only 3B → `B/C`.
+等级由 advice 快照（内存 + GPU + 基准延迟）推导而来：24GB+ GPU + 低首块延迟 → `S`；8GB GPU + 约 2 秒首块 → `A`；纯 CPU 的 3B → `B/C`。
 
-If the boss tries to enqueue a job for a new project when `activeProjects.size >= projectLimit`, the request 400s with `error: project_limit_reached`.
+如果老板在 `activeProjects.size >= projectLimit` 时试图为新项目入队 Job，请求会以 `error: project_limit_reached` 返回 400。
 
-## Settings + policy
+## 设置 + 策略
 
 ```ts
 const settings = {
-  computeSlots: 1,                                  // serial by default
-  autoOutsource: true,                              // promote to cloud if first chunk slow
-  autoOutsourceFirstChunkMsThreshold: 1800          // 1.8s threshold
+  computeSlots: 1,                                  // 默认串行
+  autoOutsource: true,                              // 首块过慢则升到 cloud
+  autoOutsourceFirstChunkMsThreshold: 1800          // 1.8 秒阈值
 };
 ```
 
-`autoOutsource` reads from the policy at boot:
+`autoOutsource` 在启动时从策略中读取：
 
 ```ts
 settings.autoOutsource = Boolean(policy.technicalDirector?.autoOutsource);
@@ -180,31 +180,31 @@ settings.autoOutsourceFirstChunkMsThreshold = Number(
 );
 ```
 
-The promotion logic is in the `pumpQueue()` worker — if the first chunk doesn't arrive within `autoOutsourceFirstChunkMsThreshold` and a `cloud` provider exists, the worker re-issues the request against `cloud` and emits `policy.decision` with `action: "auto_outsource"`.
+升档逻辑在 `pumpQueue()` worker 里——若首块在 `autoOutsourceFirstChunkMsThreshold` 之内没到达且存在 `cloud` 提供方，worker 会把请求重发到 `cloud`，并发出 `action: "auto_outsource"` 的 `policy.decision`。
 
-## Boss-facing UI: the "策略" drawer
+## 老板面向的 UI：「Policy」抽屉
 
-The "策略" (policy) drawer exposes:
+「Policy」（策略）抽屉暴露：
 
-- Producer mode (rules / llm) + autoSplit + autoDispatch + maxSubtasks
-- Technical Director mode + autoOutsource + first-chunk threshold + pause-on-errors
-- Creative Director mode + gate-on-no-preview + require-acceptance-criteria
-- Model tier radio (save / balance / quality) with a separate save button
+- Producer 模式（rules / llm）+ autoSplit + autoDispatch + maxSubtasks
+- Technical Director 模式 + autoOutsource + 首块阈值 + 错误时暂停
+- Creative Director 模式 + 无预览不放行 + 必须有验收标准
+- 模型档单选（save / balance / quality），带一个独立的保存按钮
 
-Saving the policy writes `production/policy.json`; saving the model tier writes `production/model-routing.json`. Both reload the in-memory state on next request.
+保存策略会写 `production/policy.json`；保存模型档会写 `production/model-routing.json`。两者都在下一次请求时重新加载内存状态。
 
-## Cost cap (planned, not in v1)
+## 成本上限（计划中，v1 未实现）
 
-There's a `cost` field in the finance summary but no cap enforcement yet. The expected v2 shape:
+财务汇总里有 `cost` 字段，但目前还没有上限拦截。v2 的预期形态：
 
 ```ts
 type CostCap = { dailyUSD: number; monthToDateUSD: number; hardBlock: boolean };
 ```
 
-When set, the server would refuse to enqueue a new `cloud` job if the daily cap is hit. The hook is in place (`pickQueueProviderId` returns a `providerId` — adding a "would this exceed cap?" check is a 5-line patch).
+设置后，服务器将在日上限被触及后拒绝入队新的 `cloud` Job。钩子已就位（`pickQueueProviderId` 返回一个 `providerId`——加一行「会不会超限？」检查只需 5 行改动）。
 
-## Next
+## 接下来
 
-- [Local LLM Integration](/docs/10-local-llm) — the host-grade detection that drives routing
-- [Open API Reference](/docs/13-api-reference) — finance + policy + model-routing endpoints
-- [Tech Stack](/tech-stack) — version pins for the libraries involved
+- [Local LLM 集成](/docs/10-local-llm) —— 驱动路由的主机等级探测
+- [完整 API 参考](/docs/13-api-reference) —— 财务 + 策略 + 模型路由端点
+- [技术栈](/tech-stack) —— 相关库的版本固定
