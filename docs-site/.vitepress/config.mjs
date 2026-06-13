@@ -58,6 +58,10 @@ export default defineConfig({
   base: '/AiGameAgent-design/',
   lastUpdated: true,
   cleanUrls: true,
+  head: [
+    ['meta', { name: 'google', content: 'notranslate' }],
+    ['meta', { 'http-equiv': 'Content-Language', content: 'zh-CN' }]
+  ],
   locales: {
     root: {
       label: '简体中文',
